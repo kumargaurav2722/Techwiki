@@ -24,10 +24,18 @@ export function Sidebar() {
         <nav className="space-y-6">
           {CATEGORIES.map((cat) => (
             <div key={cat.name}>
-              <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-2">
+              <NavLink
+                to={cat.path}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-2 text-sm font-semibold uppercase tracking-wider mb-2 transition-colors",
+                    isActive ? "text-indigo-600" : "text-zinc-500 hover:text-zinc-900"
+                  )
+                }
+              >
                 <cat.icon className="w-4 h-4" />
                 {cat.name}
-              </h3>
+              </NavLink>
               <ul className="space-y-1">
                 {cat.topics.map((topic) => {
                   const slug = topic.toLowerCase().replace(/[^a-z0-9]+/g, '-');
