@@ -1,8 +1,8 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
 export async function generateArticle(category: string, topic: string): Promise<string> {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  
   const prompt = `
 You are a highly knowledgeable technical writer contributing to a comprehensive "Tech Wikipedia".
 Your task is to write an in-depth, Wikipedia-style article about "${topic}" in the context of "${category}".
@@ -22,7 +22,7 @@ Do not include any conversational filler like "Here is the article" or "Sure, I 
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.1-pro-preview",
       contents: prompt,
       config: {
         temperature: 0.3,

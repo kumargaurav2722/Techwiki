@@ -1,17 +1,7 @@
 import { Link, NavLink } from "react-router-dom";
-import { BookOpen, Code2, Database, Globe, Cpu, Layout as LayoutIcon, Layers, Shield, Terminal } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const CATEGORIES = [
-  { name: "Languages", icon: Code2, path: "/category/languages", topics: ["Python", "Java", "Rust", "Go", "JavaScript", "TypeScript"] },
-  { name: "Frontend", icon: LayoutIcon, path: "/category/frontend", topics: ["React", "Next.js", "Angular", "Vue.js"] },
-  { name: "Backend", icon: Terminal, path: "/category/backend", topics: ["Node.js", "Express", "Spring Boot", "Django"] },
-  { name: "DSA", icon: Layers, path: "/category/dsa", topics: ["Arrays", "Linked Lists", "Trees", "Graphs", "Dynamic Programming"] },
-  { name: "System Design", icon: Database, path: "/category/system-design", topics: ["Consistent Hashing", "CAP Theorem", "Microservices", "Load Balancing"] },
-  { name: "DevOps", icon: Cpu, path: "/category/devops", topics: ["Docker", "Kubernetes", "CI/CD", "Terraform"] },
-  { name: "Blockchain", icon: Globe, path: "/category/blockchain", topics: ["Smart Contracts", "Ethereum", "Consensus Mechanisms"] },
-  { name: "Cryptography", icon: Shield, path: "/category/cryptography", topics: ["RSA", "AES", "Hash Functions"] },
-];
+import { CATEGORIES } from "@/data/categories";
 
 export function Sidebar() {
   return (
@@ -25,7 +15,7 @@ export function Sidebar() {
           {CATEGORIES.map((cat) => (
             <div key={cat.name}>
               <NavLink
-                to={cat.path}
+                to={`/category/${cat.path}`}
                 className={({ isActive }) =>
                   cn(
                     "flex items-center gap-2 text-sm font-semibold uppercase tracking-wider mb-2 transition-colors",
@@ -38,10 +28,10 @@ export function Sidebar() {
               </NavLink>
               <ul className="space-y-1">
                 {cat.topics.map((topic) => {
-                  const slug = topic.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-                  const catSlug = cat.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                  const slug = topic.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                  const catSlug = cat.path;
                   return (
-                    <li key={topic}>
+                    <li key={topic.name}>
                       <NavLink
                         to={`/wiki/${catSlug}/${slug}`}
                         className={({ isActive }) =>
@@ -53,7 +43,7 @@ export function Sidebar() {
                           )
                         }
                       >
-                        {topic}
+                        {topic.name}
                       </NavLink>
                     </li>
                   );
