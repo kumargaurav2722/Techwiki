@@ -8,7 +8,7 @@ const FEATURED = [
   { title: "Docker Basics", category: "devops", slug: "docker-basics", icon: Cpu, desc: "Containerization and how to write your first Dockerfile." },
 ];
 
-export function Home() {
+export function HomePage() {
   return (
     <div className="space-y-10">
       <div className="text-center space-y-4 py-12">
@@ -53,8 +53,8 @@ export function Home() {
       <div className="bg-zinc-50 rounded-2xl p-8 border border-zinc-200 text-center">
         <h3 className="text-xl font-semibold text-zinc-900 mb-2">How it works</h3>
         <p className="text-zinc-600 max-w-xl mx-auto">
-          TechWiki uses Google's Gemini AI to generate comprehensive, Wikipedia-style articles on-demand. 
-          Search for any tech topic, and if it doesn't exist in our cache, we'll write it for you instantly.
+          TechWiki uses AI to generate comprehensive, Wikipedia-style articles on-demand and caches them for fast retrieval.
+          Search for any tech topic, and if it doesn't exist yet, we'll write it for you instantly.
         </p>
       </div>
     </div>

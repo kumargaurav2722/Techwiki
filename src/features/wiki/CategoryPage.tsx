@@ -1,8 +1,8 @@
 import { useParams, Link } from "react-router-dom";
 import { BookOpen } from "lucide-react";
-import { CATEGORIES } from "@/data/categories";
+import { CATEGORIES } from "@/shared/data/categories";
 
-export function Category() {
+export function CategoryPage() {
   const { category } = useParams<{ category: string }>();
   
   const catData = CATEGORIES.find(c => c.path === category);

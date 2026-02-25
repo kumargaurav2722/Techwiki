@@ -10,11 +10,9 @@ export function SearchBar() {
     e.preventDefault();
     if (!query.trim()) return;
     
-    // Simple routing for search - we'll just send them to a generic 'search' category
-    // or try to guess the category. For simplicity, we'll use a 'general' category.
-    const slug = query.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    navigate(`/wiki/general/${slug}`);
-    setQuery("");
+    const normalized = query.trim();
+    navigate(`/search?q=${encodeURIComponent(normalized)}`);
+    setQuery(normalized);
   };
 
   return (

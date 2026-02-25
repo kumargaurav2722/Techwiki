@@ -1,7 +1,7 @@
 import { Link, NavLink } from "react-router-dom";
 import { BookOpen } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { CATEGORIES } from "@/data/categories";
+import { cn } from "@/shared/lib/utils";
+import { CATEGORIES } from "@/shared/data/categories";
 
 export function Sidebar() {
   return (
