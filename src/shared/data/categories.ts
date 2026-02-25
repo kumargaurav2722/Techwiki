@@ -17,7 +17,7 @@ export const CATEGORIES = [
       { name: "Go", desc: "Concurrent, fast language designed at Google." },
       { name: "Rust", desc: "Memory-safe language for systems programming." },
       { name: "Kotlin", desc: "Modern JVM language for Android and backend." },
-      { name: "Swift", desc: "Apple’s language for iOS and macOS." },
+      { name: "Swift", desc: "Apple's language for iOS and macOS." },
       { name: "PHP", desc: "Server-side scripting language for web." },
       { name: "Ruby", desc: "Dynamic language known for Rails." },
       { name: "SQL", desc: "Language for relational databases." },
