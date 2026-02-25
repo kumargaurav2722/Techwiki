@@ -90,7 +90,7 @@ export function searchArticles(db: Database, query: string) {
      FROM articles_fts
      JOIN articles a ON a.id = articles_fts.rowid
      WHERE articles_fts MATCH ?
-     ORDER BY rank
+     ORDER BY bm25(articles_fts)
      LIMIT 25`
   );
 

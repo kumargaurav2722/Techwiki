@@ -92,10 +92,10 @@ export const CATEGORIES = [
     ]
   },
   {
-    name: "Databases",
+    name: "DBMS",
     icon: Database,
-    path: "databases",
-    desc: "DBMS fundamentals, modeling, and performance.",
+    path: "dbms",
+    desc: "Database management systems, modeling, and performance.",
     topics: [
       { name: "SQL Basics", desc: "Core SQL queries and joins." },
       { name: "Normalization", desc: "Designing efficient schemas." },

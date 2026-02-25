@@ -40,6 +40,10 @@ function categoryTemplate(category: string) {
   if (key.includes("frontend")) return frontendTemplate;
   if (key.includes("backend")) return backendTemplate;
   if (key.includes("devops")) return devopsTemplate;
+  if (key.includes("operating-system") || key.includes("os")) return `## Summary\n\n## Core Concepts\n\n## Process and Thread Model\n\n## Scheduling\n\n## Memory Management\n\n## File Systems\n\n## Synchronization and Deadlocks\n\n## Performance Considerations\n\n## Interview Deep Dive\n\n## See Also\n`;
+  if (key.includes("network")) return `## Summary\n\n## Core Concepts\n\n## Protocol Stack\n\n## Routing and Switching\n\n## Performance and Latency\n\n## Security Considerations\n\n## Real-World Use Cases\n\n## Interview Deep Dive\n\n## See Also\n`;
+  if (key.includes("security") || key.includes("cryptography")) return `## Summary\n\n## Threat Model\n\n## Core Concepts\n\n## Common Attacks and Defenses\n\n## Security Best Practices\n\n## Real-World Use Cases\n\n## Interview Deep Dive\n\n## See Also\n`;
+  if (key.includes("ai") || key.includes("ml")) return `## Summary\n\n## Core Concepts\n\n## Algorithms and Models\n\n## Data and Training\n\n## Evaluation Metrics\n\n## Deployment and MLOps\n\n## Real-World Use Cases\n\n## Interview Deep Dive\n\n## See Also\n`;
   return generalTemplate;
 }
 

@@ -1,6 +1,7 @@
 import { Link, NavLink } from "react-router-dom";
 import { BookOpen } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
+import { slugify } from "@/shared/lib/slug";
 import { CATEGORIES } from "@/shared/data/categories";
 
 export function Sidebar() {
@@ -11,6 +12,19 @@ export function Sidebar() {
           <BookOpen className="w-6 h-6 text-indigo-600" />
           TechWiki
         </Link>
+        <div className="mb-6">
+          <NavLink
+            to="/search"
+            className={({ isActive }) =>
+              cn(
+                "block px-3 py-2 rounded-md text-sm font-semibold transition-colors",
+                isActive ? "bg-indigo-100 text-indigo-700" : "text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900"
+              )
+            }
+          >
+            Search All Topics
+          </NavLink>
+        </div>
         <nav className="space-y-6">
           {CATEGORIES.map((cat) => (
             <div key={cat.name}>
@@ -28,7 +42,7 @@ export function Sidebar() {
               </NavLink>
               <ul className="space-y-1">
                 {cat.topics.map((topic) => {
-                  const slug = topic.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                  const slug = slugify(topic.name);
                   const catSlug = cat.path;
                   return (
                     <li key={topic.name}>

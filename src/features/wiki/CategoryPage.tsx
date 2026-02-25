@@ -1,6 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { BookOpen } from "lucide-react";
 import { CATEGORIES } from "@/shared/data/categories";
+import { slugify } from "@/shared/lib/slug";
 
 export function CategoryPage() {
   const { category } = useParams<{ category: string }>();
@@ -39,7 +40,7 @@ export function CategoryPage() {
         <h2 className="text-2xl font-serif font-bold text-zinc-900 mb-6">Topics in {catData.name}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {catData.topics.map((topic) => {
-            const slug = topic.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+            const slug = slugify(topic.name);
             return (
               <Link
                 key={topic.name}

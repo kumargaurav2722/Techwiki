@@ -1,10 +1,18 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 
 export function SearchBar() {
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!location.pathname.startsWith("/search")) return;
+    const params = new URLSearchParams(location.search);
+    const q = params.get("q") || "";
+    setQuery(q);
+  }, [location.pathname, location.search]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import { fetchArticle } from "@/shared/services/wikiApi";
+import { titleFromSlug } from "@/shared/lib/slug";
 import { Loader2, AlertCircle, Clock, Tag } from "lucide-react";
 
 export function ArticlePage() {
@@ -14,8 +15,8 @@ export function ArticlePage() {
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [source, setSource] = useState<string | null>(null);
 
-  const displayTopic = topic?.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || "Unknown Topic";
-  const displayCategory = category?.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || "General";
+  const displayTopic = topic ? titleFromSlug(topic) : "Unknown Topic";
+  const displayCategory = category ? titleFromSlug(category) : "General";
 
   useEffect(() => {
     if (!category || !topic) return;

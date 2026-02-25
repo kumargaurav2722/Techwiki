@@ -13,3 +13,10 @@
 body {
   @apply bg-zinc-50 text-zinc-900 antialiased;
 }
+
+mark {
+  background-color: #fde68a;
+  color: #1f2937;
+  padding: 0 0.15rem;
+  border-radius: 0.25rem;
+}
