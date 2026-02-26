@@ -1,8 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CODING_PROMPTS, QUIZZES, SYSTEM_DESIGN_PROMPTS } from "@/shared/data/practice";
+import { executeCode } from "@/shared/services/runnerApi";
 import { BookOpen, Code2, Brain } from "lucide-react";
 
-function runJavaScript(code: string, timeoutMs = 1500): Promise<{ logs: string[]; error?: string }> {
+const LANGUAGE_LABELS: Record<string, string> = {
+  javascript: "JavaScript",
+  python: "Python",
+  java: "Java",
+};
+
+function runJavaScript(code: string, timeoutMs = 1500): Promise<{ output: string; error?: string }> {
   return new Promise((resolve) => {
     const workerCode = `
       self.onmessage = (e) => {
@@ -12,9 +19,9 @@ function runJavaScript(code: string, timeoutMs = 1500): Promise<{ logs: string[]
         try {
           const fn = new Function('console', code);
           fn(console);
-          self.postMessage({ logs });
+          self.postMessage({ output: logs.join('\\n') });
         } catch (err) {
-          self.postMessage({ logs, error: err && err.message ? err.message : String(err) });
+          self.postMessage({ output: logs.join('\\n'), error: err && err.message ? err.message : String(err) });
         }
       };
     `;
@@ -24,13 +31,13 @@ function runJavaScript(code: string, timeoutMs = 1500): Promise<{ logs: string[]
 
     const timer = window.setTimeout(() => {
       worker.terminate();
-      resolve({ logs: [], error: "Execution timed out" });
+      resolve({ output: "", error: "Execution timed out" });
     }, timeoutMs);
 
     worker.onmessage = (event) => {
       window.clearTimeout(timer);
       worker.terminate();
-      resolve(event.data as { logs: string[]; error?: string });
+      resolve(event.data as { output: string; error?: string });
     };
 
     worker.postMessage({ code });
@@ -40,9 +47,39 @@ function runJavaScript(code: string, timeoutMs = 1500): Promise<{ logs: string[]
 export function PracticePage() {
   const [tab, setTab] = useState<"quiz" | "system" | "code">("quiz");
   const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({});
-  const [code, setCode] = useState(CODING_PROMPTS[0]?.starter || "");
-  const [output, setOutput] = useState<string[]>([]);
+  const [promptId, setPromptId] = useState(CODING_PROMPTS[0]?.id || "");
+  const [language, setLanguage] = useState("javascript");
+  const [code, setCode] = useState("");
+  const [stdin, setStdin] = useState("");
+  const [output, setOutput] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  const [running, setRunning] = useState(false);
+
+  const selectedPrompt = useMemo(
+    () => CODING_PROMPTS.find((prompt) => prompt.id === promptId) || CODING_PROMPTS[0],
+    [promptId]
+  );
+
+  const availableLanguages = useMemo(() => {
+    if (!selectedPrompt) return ["javascript"];
+    return Object.keys(selectedPrompt.starters || { javascript: "" });
+  }, [selectedPrompt]);
+
+  useEffect(() => {
+    if (!selectedPrompt) return;
+    const defaultLang = selectedPrompt.defaultLanguage || availableLanguages[0] || "javascript";
+    if (!availableLanguages.includes(language)) {
+      setLanguage(defaultLang);
+    }
+  }, [selectedPrompt, availableLanguages, language]);
+
+  useEffect(() => {
+    if (!selectedPrompt) return;
+    const starter = selectedPrompt.starters?.[language] || "";
+    setCode(starter);
+    setOutput("");
+    setError(null);
+  }, [selectedPrompt, language]);
 
   const score = useMemo(() => {
     let total = 0;
@@ -57,17 +94,32 @@ export function PracticePage() {
   }, [quizAnswers]);
 
   const handleRun = async () => {
+    if (!code.trim()) return;
     setError(null);
-    const result = await runJavaScript(code);
-    setOutput(result.logs || []);
-    if (result.error) setError(result.error);
+    setOutput("");
+    setRunning(true);
+    try {
+      if (language === "javascript") {
+        const result = await runJavaScript(code);
+        setOutput(result.output || "");
+        if (result.error) setError(result.error);
+        return;
+      }
+      const result = await executeCode({ language, code, stdin });
+      setOutput(result.output || result.stdout || result.stderr || "");
+      if (result.error) setError(result.error);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Execution failed");
+    } finally {
+      setRunning(false);
+    }
   };
 
   return (
     <div className="space-y-8">
       <header className="space-y-2">
         <h1 className="text-3xl font-serif font-bold text-zinc-900">Practice Lab</h1>
-        <p className="text-zinc-600">Quizzes, system design prompts, and a lightweight JS code runner.</p>
+        <p className="text-zinc-600">Quizzes, system design prompts, and a multi-language code runner.</p>
       </header>
 
       <div className="flex gap-2">
@@ -152,7 +204,8 @@ export function PracticePage() {
             <div className="text-sm font-semibold text-zinc-900">Select prompt</div>
             <select
               className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-              onChange={(e) => setCode(CODING_PROMPTS.find((p) => p.id === e.target.value)?.starter || "")}
+              value={promptId}
+              onChange={(e) => setPromptId(e.target.value)}
             >
               {CODING_PROMPTS.map((prompt) => (
                 <option key={prompt.id} value={prompt.id}>
@@ -160,26 +213,65 @@ export function PracticePage() {
                 </option>
               ))}
             </select>
+            {selectedPrompt ? (
+              <div className="text-sm text-zinc-600">{selectedPrompt.description}</div>
+            ) : null}
           </div>
 
           <div className="bg-white border border-zinc-200 rounded-xl p-4 space-y-2">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex-1">
+                <div className="text-xs font-semibold text-zinc-700 mb-1">Language</div>
+                <select
+                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                >
+                  {availableLanguages.map((lang) => (
+                    <option key={lang} value={lang}>
+                      {LANGUAGE_LABELS[lang] || lang}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex-1">
+                <div className="text-xs font-semibold text-zinc-700 mb-1">Standard Input (optional)</div>
+                <textarea
+                  value={stdin}
+                  onChange={(e) => setStdin(e.target.value)}
+                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                  rows={3}
+                  placeholder="Input passed to stdin"
+                />
+              </div>
+            </div>
             <textarea
               value={code}
               onChange={(e) => setCode(e.target.value)}
               className="w-full min-h-[240px] rounded-md border border-zinc-300 p-3 font-mono text-sm"
             />
-            <button
-              onClick={handleRun}
-              className="px-4 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-            >
-              Run JavaScript
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={handleRun}
+                disabled={running}
+                className="px-4 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-indigo-300"
+              >
+                {running ? "Running..." : `Run ${LANGUAGE_LABELS[language] || language}`}
+              </button>
+              <button
+                onClick={() => {
+                  const starter = selectedPrompt?.starters?.[language] || "";
+                  setCode(starter);
+                }}
+                className="px-4 py-2 text-sm font-semibold bg-zinc-100 text-zinc-700 rounded-md hover:bg-zinc-200"
+              >
+                Reset to starter
+              </button>
+            </div>
             {error ? <div className="text-xs text-red-600">{error}</div> : null}
-            {output.length > 0 ? (
-              <div className="bg-zinc-900 text-zinc-100 rounded-md p-3 text-xs font-mono">
-                {output.map((line, index) => (
-                  <div key={`${line}-${index}`}>{line}</div>
-                ))}
+            {output ? (
+              <div className="bg-zinc-900 text-zinc-100 rounded-md p-3 text-xs font-mono whitespace-pre-wrap">
+                {output}
               </div>
             ) : null}
           </div>

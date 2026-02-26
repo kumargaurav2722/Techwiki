@@ -44,10 +44,17 @@ import {
   listNotes,
   createComment,
   listComments,
+  getCommentById,
+  reportComment,
+  getCommentReportById,
+  listCommentReports,
+  updateCommentReportStatus,
+  updateCommentStatus,
   shareReadingList,
   listSharedReadingLists,
 } from "./collab";
 import { buildGraph } from "./graph";
+import { executeRunner } from "./runner";
 
 dotenv.config();
 
@@ -107,6 +114,31 @@ app.get("/api/graph", (req, res) => {
     limit: Number.isFinite(limit) ? limit : undefined,
   });
   return res.json(graph);
+});
+
+app.post("/api/runner/execute", async (req, res) => {
+  const { language, code, stdin } = req.body || {};
+  if (!language || typeof language !== "string") {
+    return res.status(400).json({ error: "language is required" });
+  }
+  if (!code || typeof code !== "string") {
+    return res.status(400).json({ error: "code is required" });
+  }
+  if (code.length > 50000) {
+    return res.status(400).json({ error: "Code is too large" });
+  }
+
+  try {
+    const result = await executeRunner({
+      language,
+      code,
+      stdin: typeof stdin === "string" ? stdin : "",
+    });
+    return res.json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Runner error";
+    return res.status(500).json({ error: message });
+  }
 });
 
 app.post("/api/auth/register", async (req, res) => {
@@ -668,6 +700,50 @@ app.post("/api/comments/:articleId", requireAuth, (req: AuthRequest, res) => {
   }
   const comment = createComment(db, req.user!.id, articleId, content.trim());
   return res.json({ comment });
+});
+
+app.post("/api/comments/:commentId/report", requireAuth, (req: AuthRequest, res) => {
+  const commentId = Number(req.params.commentId);
+  if (!Number.isFinite(commentId)) return res.status(400).json({ error: "Invalid comment id" });
+  const comment = getCommentById(db, commentId);
+  if (!comment) return res.status(404).json({ error: "Comment not found" });
+  const { reason } = req.body || {};
+  const report = reportComment(db, commentId, req.user!.id, typeof reason === "string" ? reason.trim() : undefined);
+  return res.json({ report });
+});
+
+app.get("/api/admin/comment-reports", requireAdmin, (req: AuthRequest, res) => {
+  const status = typeof req.query.status === "string" ? req.query.status : undefined;
+  const reports = listCommentReports(db, status);
+  return res.json({ reports });
+});
+
+app.post("/api/admin/comment-reports/:id/action", requireAdmin, (req: AuthRequest, res) => {
+  const reportId = Number(req.params.id);
+  if (!Number.isFinite(reportId)) return res.status(400).json({ error: "Invalid report id" });
+  const { action } = req.body || {};
+  if (!action || typeof action !== "string") {
+    return res.status(400).json({ error: "action required" });
+  }
+
+  const report = getCommentReportById(db, reportId);
+  if (!report) return res.status(404).json({ error: "Report not found" });
+
+  if (action === "dismiss") {
+    const updated = updateCommentReportStatus(db, reportId, "dismissed", req.user!.id);
+    return res.json({ report: updated });
+  }
+  if (action === "resolve") {
+    const updated = updateCommentReportStatus(db, reportId, "resolved", req.user!.id);
+    return res.json({ report: updated });
+  }
+  if (action === "hide") {
+    updateCommentStatus(db, report.comment_id, "hidden");
+    const updated = updateCommentReportStatus(db, reportId, "resolved", req.user!.id);
+    return res.json({ report: updated });
+  }
+
+  return res.status(400).json({ error: "Invalid action" });
 });
 
 if (process.env.INGEST_ON_BOOT === "true") {

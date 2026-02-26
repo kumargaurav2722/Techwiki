@@ -17,7 +17,8 @@ export type CodingPrompt = {
   id: string;
   title: string;
   description: string;
-  starter: string;
+  starters: Record<string, string>;
+  defaultLanguage?: string;
   sampleInput?: string;
   sampleOutput?: string;
 };
@@ -94,18 +95,42 @@ export const CODING_PROMPTS: CodingPrompt[] = [
     id: "c1",
     title: "Two Sum",
     description: "Given an array of integers and a target, return indices of two numbers that add up to the target.",
-    starter: "function twoSum(nums, target) {\n  // TODO\n}\n\nconsole.log(twoSum([2,7,11,15], 9));"
+    defaultLanguage: "javascript",
+    starters: {
+      javascript:
+        "function twoSum(nums, target) {\n  // TODO\n}\n\nconsole.log(twoSum([2,7,11,15], 9));",
+      python:
+        "def two_sum(nums, target):\n    # TODO\n    return []\n\nprint(two_sum([2,7,11,15], 9))",
+      java:
+        "import java.util.*;\n\npublic class Main {\n  public static int[] twoSum(int[] nums, int target) {\n    // TODO\n    return new int[0];\n  }\n\n  public static void main(String[] args) {\n    int[] res = twoSum(new int[]{2,7,11,15}, 9);\n    System.out.println(Arrays.toString(res));\n  }\n}",
+    }
   },
   {
     id: "c2",
     title: "Valid Parentheses",
     description: "Return true if the input string has valid parentheses ordering.",
-    starter: "function isValid(s) {\n  // TODO\n}\n\nconsole.log(isValid('()[]{}'));"
+    defaultLanguage: "javascript",
+    starters: {
+      javascript:
+        "function isValid(s) {\n  // TODO\n}\n\nconsole.log(isValid('()[]{}'));",
+      python:
+        "def is_valid(s):\n    # TODO\n    return False\n\nprint(is_valid('()[]{}'))",
+      java:
+        "import java.util.*;\n\npublic class Main {\n  public static boolean isValid(String s) {\n    // TODO\n    return false;\n  }\n\n  public static void main(String[] args) {\n    System.out.println(isValid(\"()[]{}\"));\n  }\n}",
+    }
   },
   {
     id: "c3",
     title: "Binary Search",
     description: "Implement binary search and return the index of target or -1.",
-    starter: "function binarySearch(arr, target) {\n  // TODO\n}\n\nconsole.log(binarySearch([1,3,5,7,9], 7));"
+    defaultLanguage: "javascript",
+    starters: {
+      javascript:
+        "function binarySearch(arr, target) {\n  // TODO\n}\n\nconsole.log(binarySearch([1,3,5,7,9], 7));",
+      python:
+        "def binary_search(arr, target):\n    # TODO\n    return -1\n\nprint(binary_search([1,3,5,7,9], 7))",
+      java:
+        "public class Main {\n  public static int binarySearch(int[] arr, int target) {\n    // TODO\n    return -1;\n  }\n\n  public static void main(String[] args) {\n    System.out.println(binarySearch(new int[]{1,3,5,7,9}, 7));\n  }\n}",
+    }
   }
 ];

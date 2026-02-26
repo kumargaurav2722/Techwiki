@@ -32,6 +32,11 @@ View your app in AI Studio: https://ai.studio/apps/e0d6b4f8-d19d-49ce-a058-dc323
    `INGEST_ON_BOOT=false` (optional, set `true` to ingest on server start)
    `INGEST_CATEGORY=dsa` (optional, only when ingesting)
    `INGEST_LIMIT=20` (optional, only when ingesting)
+   `CODE_RUNNER_PROVIDER=piston` (optional, enables multi-language code runner)
+   `CODE_RUNNER_API=https://emkc.org/api/v2/piston/execute`
+   `CODE_RUNNER_DEFAULT_VERSION=latest` (optional)
+   `CODE_RUNNER_RUN_TIMEOUT_MS=3000` (optional)
+   `CODE_RUNNER_COMPILE_TIMEOUT_MS=10000` (optional)
 3. Start the API server (port 4000):
    `npm run dev:server`
 4. Start the frontend (port 3000):
@@ -50,3 +55,5 @@ Learning paths: open `/learn` for curated tracks.
 Library: open `/library` for bookmarks and reading lists. Sign in via `/login`.
 
 Explore: open `/explore` for trending, recent, and topic browsing.
+
+Practice: open `/practice` for quizzes, system design prompts, and multi-language code execution.

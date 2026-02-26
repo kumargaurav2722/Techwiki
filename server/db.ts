@@ -155,9 +155,28 @@ export function initDb() {
       article_id INTEGER NOT NULL,
       content TEXT NOT NULL,
       created_at TEXT NOT NULL,
+      updated_at TEXT,
+      status TEXT NOT NULL DEFAULT 'visible',
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY(article_id) REFERENCES articles(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS comment_reports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      comment_id INTEGER NOT NULL,
+      reporter_id INTEGER NOT NULL,
+      reason TEXT,
+      status TEXT NOT NULL DEFAULT 'open',
+      created_at TEXT NOT NULL,
+      resolved_at TEXT,
+      resolved_by INTEGER,
+      UNIQUE(comment_id, reporter_id),
+      FOREIGN KEY(comment_id) REFERENCES comments(id) ON DELETE CASCADE,
+      FOREIGN KEY(reporter_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY(resolved_by) REFERENCES users(id) ON DELETE SET NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_comment_reports_status ON comment_reports (status);
 
     CREATE TABLE IF NOT EXISTS shared_reading_lists (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -183,6 +202,15 @@ export function initDb() {
     "current_version",
     "ALTER TABLE articles ADD COLUMN current_version INTEGER NOT NULL DEFAULT 1"
   );
+
+  const commentColumns = db.prepare("PRAGMA table_info(comments)").all() as Array<{ name: string }>;
+  const ensureCommentColumn = (name: string, ddl: string) => {
+    if (!commentColumns.some((col) => col.name === name)) {
+      db.exec(ddl);
+    }
+  };
+  ensureCommentColumn("status", "ALTER TABLE comments ADD COLUMN status TEXT NOT NULL DEFAULT 'visible'");
+  ensureCommentColumn("updated_at", "ALTER TABLE comments ADD COLUMN updated_at TEXT");
 
   return db;
 }
