@@ -4,6 +4,7 @@ export type Article = {
   topic: string;
   slug: string;
   markdown: string;
+  references?: Array<{ title: string; url: string }> | null;
   created_at: string;
   updated_at: string;
   version: number;

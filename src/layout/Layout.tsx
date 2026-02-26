@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { SearchBar } from "@/features/search/SearchBar";
+import { UserMenu } from "@/features/auth/UserMenu";
 
 export function Layout() {
   return (
@@ -10,6 +11,9 @@ export function Layout() {
         <header className="h-16 border-b border-zinc-200 bg-white flex items-center px-6 sticky top-0 z-10">
           <div className="flex-1 max-w-3xl mx-auto w-full">
             <SearchBar />
+          </div>
+          <div className="ml-4">
+            <UserMenu />
           </div>
         </header>
         <main className="flex-1 overflow-y-auto">

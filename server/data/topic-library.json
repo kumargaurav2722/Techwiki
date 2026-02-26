@@ -1,0 +1,180 @@
+{
+  "categories": [
+    {
+      "name": "Languages",
+      "path": "languages",
+      "topics": [
+        { "name": "C" },
+        { "name": "C++" },
+        { "name": "C#" },
+        { "name": "Java" },
+        { "name": "Python" },
+        { "name": "JavaScript" },
+        { "name": "TypeScript" },
+        { "name": "Go" },
+        { "name": "Rust" },
+        { "name": "Kotlin" },
+        { "name": "Swift" },
+        { "name": "PHP" },
+        { "name": "Ruby" },
+        { "name": "SQL" },
+        { "name": "Bash" }
+      ]
+    },
+    {
+      "name": "Frontend",
+      "path": "frontend",
+      "topics": [
+        { "name": "React" },
+        { "name": "Next.js" },
+        { "name": "Angular" },
+        { "name": "Vue.js" },
+        { "name": "Svelte" },
+        { "name": "Web Performance" },
+        { "name": "Accessibility" }
+      ]
+    },
+    {
+      "name": "Backend",
+      "path": "backend",
+      "topics": [
+        { "name": "Node.js" },
+        { "name": "Express" },
+        { "name": "Django" },
+        { "name": "FastAPI" },
+        { "name": "Spring Boot" },
+        { "name": "REST APIs" },
+        { "name": "GraphQL" },
+        { "name": "Authentication" }
+      ]
+    },
+    {
+      "name": "DSA",
+      "path": "dsa",
+      "topics": [
+        { "name": "Arrays" },
+        { "name": "Linked Lists" },
+        { "name": "Stacks and Queues" },
+        { "name": "Hash Tables" },
+        { "name": "Trees" },
+        { "name": "Heaps" },
+        { "name": "Graphs" },
+        { "name": "Sorting Algorithms" },
+        { "name": "Dynamic Programming" },
+        { "name": "Greedy Algorithms" },
+        { "name": "Tries" }
+      ]
+    },
+    {
+      "name": "System Design",
+      "path": "system-design",
+      "topics": [
+        { "name": "Load Balancing" },
+        { "name": "Caching" },
+        { "name": "Consistent Hashing" },
+        { "name": "CAP Theorem" },
+        { "name": "Rate Limiting" },
+        { "name": "Message Queues" },
+        { "name": "Database Sharding" },
+        { "name": "Event-Driven Architecture" },
+        { "name": "Observability" }
+      ]
+    },
+    {
+      "name": "DBMS",
+      "path": "dbms",
+      "topics": [
+        { "name": "SQL Basics" },
+        { "name": "Normalization" },
+        { "name": "Indexing" },
+        { "name": "Transactions" },
+        { "name": "Query Optimization" },
+        { "name": "NoSQL" }
+      ]
+    },
+    {
+      "name": "OOP",
+      "path": "oop",
+      "topics": [
+        { "name": "Encapsulation" },
+        { "name": "Inheritance" },
+        { "name": "Polymorphism" },
+        { "name": "SOLID Principles" },
+        { "name": "Design Patterns" }
+      ]
+    },
+    {
+      "name": "DevOps",
+      "path": "devops",
+      "topics": [
+        { "name": "Docker" },
+        { "name": "Kubernetes" },
+        { "name": "CI/CD" },
+        { "name": "Terraform" },
+        { "name": "GitOps" },
+        { "name": "SRE" }
+      ]
+    },
+    {
+      "name": "Operating Systems",
+      "path": "operating-systems",
+      "topics": [
+        { "name": "Processes and Threads" },
+        { "name": "CPU Scheduling" },
+        { "name": "Memory Management" },
+        { "name": "File Systems" },
+        { "name": "Synchronization" }
+      ]
+    },
+    {
+      "name": "Networking",
+      "path": "networking",
+      "topics": [
+        { "name": "TCP/IP" },
+        { "name": "HTTP/HTTPS" },
+        { "name": "DNS" },
+        { "name": "CDN" },
+        { "name": "TLS" }
+      ]
+    },
+    {
+      "name": "Security",
+      "path": "security",
+      "topics": [
+        { "name": "Authentication" },
+        { "name": "OWASP Top 10" },
+        { "name": "Encryption" },
+        { "name": "Threat Modeling" }
+      ]
+    },
+    {
+      "name": "AI/ML",
+      "path": "ai-ml",
+      "topics": [
+        { "name": "Supervised Learning" },
+        { "name": "Neural Networks" },
+        { "name": "LLMs" },
+        { "name": "MLOps" }
+      ]
+    },
+    {
+      "name": "Blockchain",
+      "path": "blockchain",
+      "topics": [
+        { "name": "Smart Contracts" },
+        { "name": "Ethereum" },
+        { "name": "Consensus Mechanisms" }
+      ]
+    },
+    {
+      "name": "Cryptography",
+      "path": "cryptography",
+      "topics": [
+        { "name": "RSA" },
+        { "name": "AES" },
+        { "name": "Hash Functions" },
+        { "name": "Digital Signatures" }
+      ]
+    }
+  ]
+}

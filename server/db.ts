@@ -65,6 +65,44 @@ export function initDb() {
       INSERT INTO articles_fts(articles_fts, rowid, title, body, category, topic, slug)
       VALUES('delete', old.id, old.topic, old.markdown, old.category, old.topic, old.slug);
     END;
+
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'user',
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS bookmarks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      category TEXT NOT NULL,
+      slug TEXT NOT NULL,
+      topic TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      UNIQUE(user_id, category, slug),
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS reading_lists (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS reading_list_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      list_id INTEGER NOT NULL,
+      category TEXT NOT NULL,
+      slug TEXT NOT NULL,
+      topic TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      UNIQUE(list_id, category, slug),
+      FOREIGN KEY(list_id) REFERENCES reading_lists(id) ON DELETE CASCADE
+    );
   `);
 
   return db;

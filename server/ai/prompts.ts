@@ -1,6 +1,10 @@
 export type PromptInput = {
   category: string;
   topic: string;
+  rag?: {
+    context: string;
+    sources: Array<{ title: string; url: string }>;
+  } | null;
 };
 
 const baseRules = `You are a senior technical writer for a professional, Wikipedia-style tech encyclopedia.
@@ -48,8 +52,18 @@ function categoryTemplate(category: string) {
 }
 
 export function buildPrompt(input: PromptInput) {
-  const { category, topic } = input;
+  const { category, topic, rag } = input;
   const template = categoryTemplate(category);
 
-  return `${baseRules}\n\nWrite an in-depth article about "${topic}" in the context of "${category}".\n\nUse this outline (adapt if needed, but keep all major sections):\n\n${template}\n\nAdditional requirements:\n- Provide at least 2 code examples when applicable.\n- Prefer real-world industry practices and interview-ready explanations.\n- In the \"See Also\" section, include 4-6 internal links like [Topic](/wiki/category/topic-slug).\n- In the \"References\" section, include 5-8 authoritative sources with URLs.`;
+  const ragBlock = rag?.context
+    ? `\n\nUse the following authoritative sources to ground the article. Cite ONLY these sources in the References section.\n\n${rag.context}\n`
+    : "";
+
+  const sourcesList = rag?.sources?.length
+    ? `\nSources to cite:\n${rag.sources
+        .map((source) => `- ${source.title} (${source.url})`)
+        .join("\n")}\n`
+    : "";
+
+  return `${baseRules}\n\nWrite an in-depth article about "${topic}" in the context of "${category}".\n\nUse this outline (adapt if needed, but keep all major sections):\n\n${template}\n\nAdditional requirements:\n- Provide at least 2 code examples when applicable.\n- Prefer real-world industry practices and interview-ready explanations.\n- In the \"See Also\" section, include 4-6 internal links like [Topic](/wiki/category/topic-slug).\n- In the \"References\" section, include 5-8 authoritative sources with URLs.${ragBlock}${sourcesList}`;
 }
