@@ -52,6 +52,26 @@ export function ArticlePage() {
     };
   }, [category, topic, displayCategory, displayTopic]);
 
+  const handleRefresh = async () => {
+    if (!category || !topic) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetchArticle(category, topic, {
+        topic: displayTopic,
+        refresh: true,
+      });
+      setContent(response.article.markdown);
+      setUpdatedAt(response.article.updated_at);
+      setSource(response.source);
+      setLoading(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4 text-zinc-500">
@@ -91,6 +111,14 @@ export function ArticlePage() {
               {source === "cache" ? "Cached" : "Generated"}
             </span>
           ) : null}
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={loading}
+            className="ml-auto text-xs font-semibold text-indigo-600 hover:text-indigo-800 disabled:text-zinc-400"
+          >
+            Regenerate
+          </button>
         </div>
         <h1 className="text-4xl md:text-5xl font-serif font-bold text-zinc-900 tracking-tight mb-4">
           {displayTopic}

@@ -78,7 +78,30 @@ export function SearchPage() {
         </p>
       </header>
 
-      {loading ? (
+      {!query ? (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-zinc-900">Browse by Category</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {CATEGORIES.map((category) => (
+              <Link
+                key={category.path}
+                to={`/category/${category.path}`}
+                className="group block p-5 bg-white border border-zinc-200 rounded-xl hover:border-indigo-500 hover:shadow-sm transition-all"
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600 group-hover:bg-indigo-100 transition-colors">
+                    <category.icon className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-base font-semibold text-zinc-900 group-hover:text-indigo-600 transition-colors">
+                    {category.name}
+                  </h3>
+                </div>
+                <p className="text-sm text-zinc-600">{category.desc}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : loading ? (
         <div className="text-zinc-500">Searching...</div>
       ) : error ? (
         <div className="text-red-600">{error}</div>

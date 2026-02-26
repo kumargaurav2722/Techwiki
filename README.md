@@ -20,3 +20,5 @@ View your app in AI Studio: https://ai.studio/apps/e0d6b4f8-d19d-49ce-a058-dc323
    `npm run dev:server`
 4. Start the frontend (port 3000):
    `npm run dev`
+
+Content is cached in `server/data/techwiki.db`.

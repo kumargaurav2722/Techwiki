@@ -13,6 +13,34 @@ export function slugify(value: string) {
 export function titleFromSlug(slug: string) {
   const parts = slug.split("-").filter(Boolean);
   const words: string[] = [];
+  const acronyms = new Set([
+    "ai",
+    "ml",
+    "api",
+    "sql",
+    "db",
+    "dbms",
+    "oop",
+    "os",
+    "ui",
+    "ux",
+    "ci",
+    "cd",
+    "sre",
+    "tls",
+    "http",
+    "https",
+    "dns",
+    "jwt",
+    "rest",
+    "graphql",
+    "css",
+    "html",
+    "js",
+    "ts",
+    "cpu",
+    "gpu",
+  ]);
 
   for (let i = 0; i < parts.length; i += 1) {
     const part = parts[i];
@@ -37,7 +65,11 @@ export function titleFromSlug(slug: string) {
       continue;
     }
 
-    words.push(part.charAt(0).toUpperCase() + part.slice(1));
+    if (acronyms.has(part)) {
+      words.push(part.toUpperCase());
+    } else {
+      words.push(part.charAt(0).toUpperCase() + part.slice(1));
+    }
   }
 
   return words.join(" ");
