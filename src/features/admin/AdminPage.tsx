@@ -7,9 +7,14 @@ import {
   startIngestion,
   getIngestionStatus,
   updateAdminArticle,
+  createDraft,
+  approveDraft,
+  publishDraft,
+  listArticleVersions,
   type AdminArticle,
   type AdminArticleSummary,
   type IngestStatus,
+  type ArticleVersion,
 } from "@/shared/services/adminApi";
 import { Search, Save, Loader2, Database, KeyRound } from "lucide-react";
 import { titleFromSlug } from "@/shared/lib/slug";
@@ -43,6 +48,7 @@ export function AdminPage() {
   const [article, setArticle] = useState<AdminArticle | null>(null);
   const [markdown, setMarkdown] = useState("");
   const [referencesText, setReferencesText] = useState("");
+  const [versions, setVersions] = useState<ArticleVersion[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,15 +89,17 @@ export function AdminPage() {
       setArticle(null);
       setMarkdown("");
       setReferencesText("");
+      setVersions([]);
       return;
     }
 
     setLoading(true);
-    getAdminArticle(selectedId)
-      .then((data) => {
+    Promise.all([getAdminArticle(selectedId), listArticleVersions(selectedId)])
+      .then(([data, versionData]) => {
         setArticle(data);
         setMarkdown(data.markdown);
         setReferencesText(formatReferences(data.references));
+        setVersions(versionData || []);
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : "Failed to load article");
@@ -129,12 +137,68 @@ export function AdminPage() {
       const updated = await updateAdminArticle(article.id, {
         markdown,
         references: refs.length ? refs : null,
+        status: "published",
       });
       setArticle(updated);
       setMarkdown(updated.markdown);
       setReferencesText(formatReferences(updated.references));
+      const versionData = await listArticleVersions(article.id);
+      setVersions(versionData || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save article");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!article) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const refs = parseReferences(referencesText);
+      const updated = await createDraft(article.id, {
+        markdown,
+        references: refs.length ? refs : null,
+      });
+      setArticle(updated);
+      const versionData = await listArticleVersions(article.id);
+      setVersions(versionData || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save draft");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!article) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await approveDraft(article.id);
+      const versionData = await listArticleVersions(article.id);
+      setVersions(versionData || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to approve draft");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!article) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await publishDraft(article.id);
+      setArticle(updated);
+      setMarkdown(updated.markdown);
+      setReferencesText(formatReferences(updated.references));
+      const versionData = await listArticleVersions(article.id);
+      setVersions(versionData || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to publish");
     } finally {
       setSaving(false);
     }
@@ -268,17 +332,40 @@ export function AdminPage() {
                   <div>
                     <h2 className="text-xl font-semibold text-zinc-900">{article.topic}</h2>
                     <p className="text-xs uppercase tracking-wide text-zinc-400">
-                      {titleFromSlug(article.category)} · v{article.version}
+                      {titleFromSlug(article.category)} · v{article.version} · {article.status || "published"}
                     </p>
                   </div>
-                  <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="inline-flex items-center gap-2 bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-md hover:bg-indigo-700 disabled:bg-indigo-300"
-                  >
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    Save
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleSaveDraft}
+                      disabled={saving}
+                      className="inline-flex items-center gap-2 bg-zinc-100 text-zinc-700 text-sm font-semibold px-3 py-2 rounded-md hover:bg-zinc-200 disabled:opacity-60"
+                    >
+                      Save Draft
+                    </button>
+                    <button
+                      onClick={handleApprove}
+                      disabled={saving}
+                      className="inline-flex items-center gap-2 bg-amber-500 text-white text-sm font-semibold px-3 py-2 rounded-md hover:bg-amber-600 disabled:opacity-60"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={handlePublish}
+                      disabled={saving}
+                      className="inline-flex items-center gap-2 bg-emerald-600 text-white text-sm font-semibold px-3 py-2 rounded-md hover:bg-emerald-700 disabled:opacity-60"
+                    >
+                      Publish
+                    </button>
+                    <button
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="inline-flex items-center gap-2 bg-indigo-600 text-white text-sm font-semibold px-3 py-2 rounded-md hover:bg-indigo-700 disabled:bg-indigo-300"
+                    >
+                      {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      Save Now
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -298,6 +385,27 @@ export function AdminPage() {
                   onChange={(e) => setReferencesText(e.target.value)}
                   className="w-full min-h-[140px] rounded-md border border-zinc-300 p-3 text-sm"
                 />
+              </div>
+
+              <div className="bg-white border border-zinc-200 rounded-xl p-4 space-y-2">
+                <h3 className="text-sm font-semibold text-zinc-700">Version History</h3>
+                {versions.length === 0 ? (
+                  <div className="text-sm text-zinc-500">No versions yet.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {versions.map((version) => (
+                      <div key={version.id} className="border border-zinc-200 rounded-md p-3">
+                        <div className="flex items-center justify-between text-xs text-zinc-500">
+                          <span>{new Date(version.created_at).toLocaleString()}</span>
+                          <span className="uppercase">{version.status}</span>
+                        </div>
+                        <div className="text-sm text-zinc-700 mt-2 line-clamp-2">
+                          {version.markdown.slice(0, 140)}...
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -13,6 +13,14 @@ import {
   listReadingLists,
   type ReadingList,
 } from "@/shared/services/libraryApi";
+import {
+  createComment,
+  createNote,
+  listComments,
+  listNotes,
+  type Comment,
+  type Note,
+} from "@/shared/services/collabApi";
 
 export function ArticlePage() {
   const { category, topic } = useParams<{ category: string; topic: string }>();
@@ -22,9 +30,16 @@ export function ArticlePage() {
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [source, setSource] = useState<string | null>(null);
   const [references, setReferences] = useState<Array<{ title: string; url: string }> | null>(null);
+  const [views, setViews] = useState<number | null>(null);
+  const [articleId, setArticleId] = useState<number | null>(null);
   const [lists, setLists] = useState<ReadingList[]>([]);
   const [selectedListId, setSelectedListId] = useState<number | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [noteText, setNoteText] = useState("");
+  const [commentText, setCommentText] = useState("");
+  const [collabError, setCollabError] = useState<string | null>(null);
   const { user } = useAuth();
 
   const displayTopic = topic ? titleFromSlug(topic) : "Unknown Topic";
@@ -38,6 +53,7 @@ export function ArticlePage() {
     const fetchContent = async () => {
       setLoading(true);
       setError(null);
+      setArticleId(null);
 
       try {
         const response = await fetchArticle(category, topic, {
@@ -48,6 +64,8 @@ export function ArticlePage() {
           setUpdatedAt(response.article.updated_at);
           setSource(response.source);
           setReferences(response.article.references || null);
+          setViews(response.article.views ?? null);
+          setArticleId(response.article.id);
           setLoading(false);
         }
       } catch (err) {
@@ -76,6 +94,36 @@ export function ArticlePage() {
       .catch(() => setLists([]));
   }, [user]);
 
+  useEffect(() => {
+    if (!user || !articleId) {
+      setNotes([]);
+      setComments([]);
+      setCollabError(null);
+      return;
+    }
+    let isMounted = true;
+    const loadCollab = async () => {
+      try {
+        const [notesData, commentsData] = await Promise.all([
+          listNotes(articleId),
+          listComments(articleId),
+        ]);
+        if (isMounted) {
+          setNotes(notesData || []);
+          setComments(commentsData || []);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setCollabError(err instanceof Error ? err.message : "Failed to load notes or comments");
+        }
+      }
+    };
+    loadCollab();
+    return () => {
+      isMounted = false;
+    };
+  }, [user, articleId]);
+
   const handleRefresh = async () => {
     if (!category || !topic) return;
     setLoading(true);
@@ -90,6 +138,8 @@ export function ArticlePage() {
       setUpdatedAt(response.article.updated_at);
       setSource(response.source);
       setReferences(response.article.references || null);
+      setViews(response.article.views ?? null);
+      setArticleId(response.article.id);
       setLoading(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -118,6 +168,30 @@ export function ArticlePage() {
       setSaveMessage("Added to reading list.");
     } catch (err) {
       setSaveMessage(err instanceof Error ? err.message : "Failed to add to list");
+    }
+  };
+
+  const handleSaveNote = async () => {
+    if (!user || !articleId || !noteText.trim()) return;
+    try {
+      const note = await createNote(articleId, noteText.trim());
+      setNotes((prev) => [note, ...prev]);
+      setNoteText("");
+      setCollabError(null);
+    } catch (err) {
+      setCollabError(err instanceof Error ? err.message : "Failed to save note");
+    }
+  };
+
+  const handlePostComment = async () => {
+    if (!user || !articleId || !commentText.trim()) return;
+    try {
+      const comment = await createComment(articleId, commentText.trim());
+      setComments((prev) => [comment, ...prev]);
+      setCommentText("");
+      setCollabError(null);
+    } catch (err) {
+      setCollabError(err instanceof Error ? err.message : "Failed to post comment");
     }
   };
 
@@ -158,6 +232,11 @@ export function ArticlePage() {
           {source ? (
             <span className="flex items-center gap-1.5 bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-md">
               {source === "cache" ? "Cached" : "Generated"}
+            </span>
+          ) : null}
+          {views !== null ? (
+            <span className="flex items-center gap-1.5 bg-zinc-100 px-2.5 py-1 rounded-md">
+              {views} views
             </span>
           ) : null}
           <div className="ml-auto flex items-center gap-2">
@@ -253,7 +332,86 @@ export function ArticlePage() {
           </ul>
         </section>
       ) : null}
-      
+
+      <section className="mt-10 border-t border-zinc-200 pt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-serif font-bold text-zinc-900">Notes and Discussion</h2>
+          {collabError ? <span className="text-xs text-red-600">{collabError}</span> : null}
+        </div>
+        {!user ? (
+          <div className="text-sm text-zinc-500">
+            <Link to="/login" className="text-indigo-600 hover:underline">
+              Sign in
+            </Link>{" "}
+            to create notes and join the discussion.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white border border-zinc-200 rounded-xl p-4 space-y-3">
+              <h3 className="text-lg font-semibold text-zinc-900">Personal Notes</h3>
+              <textarea
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                rows={4}
+                className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                placeholder="Capture key ideas or reminders..."
+              />
+              <button
+                onClick={handleSaveNote}
+                className="px-4 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+              >
+                Save Note
+              </button>
+              {notes.length === 0 ? (
+                <div className="text-xs text-zinc-500">No notes yet.</div>
+              ) : (
+                <div className="space-y-2">
+                  {notes.map((note) => (
+                    <div key={note.id} className="border border-zinc-200 rounded-lg p-3">
+                      <div className="text-sm text-zinc-700 whitespace-pre-wrap">{note.content}</div>
+                      <div className="text-xs text-zinc-400 mt-2">
+                        Updated {new Date(note.updated_at).toLocaleString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white border border-zinc-200 rounded-xl p-4 space-y-3">
+              <h3 className="text-lg font-semibold text-zinc-900">Discussion</h3>
+              <textarea
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                rows={4}
+                className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                placeholder="Share clarifications or interview tips..."
+              />
+              <button
+                onClick={handlePostComment}
+                className="px-4 py-2 text-sm font-semibold bg-zinc-900 text-white rounded-md hover:bg-zinc-800"
+              >
+                Post Comment
+              </button>
+              {comments.length === 0 ? (
+                <div className="text-xs text-zinc-500">No comments yet.</div>
+              ) : (
+                <div className="space-y-2">
+                  {comments.map((comment) => (
+                    <div key={comment.id} className="border border-zinc-200 rounded-lg p-3">
+                      <div className="text-sm text-zinc-700 whitespace-pre-wrap">{comment.content}</div>
+                      <div className="text-xs text-zinc-400 mt-2">
+                        User #{comment.user_id} on {new Date(comment.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </section>
+
       <footer className="mt-16 pt-8 border-t border-zinc-200 text-sm text-zinc-500 text-center">
         <p>This article was generated by AI and cached in the TechWiki database for faster retrieval.</p>
       </footer>

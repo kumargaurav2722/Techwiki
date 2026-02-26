@@ -5,6 +5,7 @@ export type Article = {
   slug: string;
   markdown: string;
   references?: Array<{ title: string; url: string }> | null;
+  views?: number;
   created_at: string;
   updated_at: string;
   version: number;

@@ -48,3 +48,5 @@ Admin editor: open `/admin` in the frontend. If `ADMIN_API_KEY` is set, enter it
 Learning paths: open `/learn` for curated tracks.
 
 Library: open `/library` for bookmarks and reading lists. Sign in via `/login`.
+
+Explore: open `/explore` for trending, recent, and topic browsing.

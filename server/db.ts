@@ -33,7 +33,10 @@ export function initDb() {
       references_json TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
-      version INTEGER NOT NULL DEFAULT 1
+      version INTEGER NOT NULL DEFAULT 1,
+      status TEXT NOT NULL DEFAULT 'published',
+      current_version INTEGER NOT NULL DEFAULT 1,
+      views INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE UNIQUE INDEX IF NOT EXISTS idx_articles_category_slug
@@ -103,7 +106,83 @@ export function initDb() {
       UNIQUE(list_id, category, slug),
       FOREIGN KEY(list_id) REFERENCES reading_lists(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS article_versions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      article_id INTEGER NOT NULL,
+      markdown TEXT NOT NULL,
+      references_json TEXT,
+      status TEXT NOT NULL DEFAULT 'draft',
+      created_at TEXT NOT NULL,
+      created_by INTEGER,
+      FOREIGN KEY(article_id) REFERENCES articles(id) ON DELETE CASCADE,
+      FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS teams (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      owner_id INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY(owner_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS team_members (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      team_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      role TEXT NOT NULL DEFAULT 'member',
+      created_at TEXT NOT NULL,
+      UNIQUE(team_id, user_id),
+      FOREIGN KEY(team_id) REFERENCES teams(id) ON DELETE CASCADE,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      article_id INTEGER NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY(article_id) REFERENCES articles(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS comments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      article_id INTEGER NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY(article_id) REFERENCES articles(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS shared_reading_lists (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      list_id INTEGER NOT NULL,
+      team_id INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      UNIQUE(list_id, team_id),
+      FOREIGN KEY(list_id) REFERENCES reading_lists(id) ON DELETE CASCADE,
+      FOREIGN KEY(team_id) REFERENCES teams(id) ON DELETE CASCADE
+    );
   `);
+
+  const columns = db.prepare("PRAGMA table_info(articles)").all() as Array<{ name: string }>;
+  const ensureColumn = (name: string, ddl: string) => {
+    if (!columns.some((col) => col.name === name)) {
+      db.exec(ddl);
+    }
+  };
+
+  ensureColumn("views", "ALTER TABLE articles ADD COLUMN views INTEGER NOT NULL DEFAULT 0");
+  ensureColumn("status", "ALTER TABLE articles ADD COLUMN status TEXT NOT NULL DEFAULT 'published'");
+  ensureColumn(
+    "current_version",
+    "ALTER TABLE articles ADD COLUMN current_version INTEGER NOT NULL DEFAULT 1"
+  );
 
   return db;
 }

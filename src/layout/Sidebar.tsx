@@ -27,6 +27,39 @@ export function Sidebar() {
             Search All Topics
           </NavLink>
           <NavLink
+            to="/explore"
+            className={({ isActive }) =>
+              cn(
+                "mt-2 block px-3 py-2 rounded-md text-sm font-semibold transition-colors",
+                isActive ? "bg-indigo-100 text-indigo-700" : "text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900"
+              )
+            }
+          >
+            Explore
+          </NavLink>
+          <NavLink
+            to="/graph"
+            className={({ isActive }) =>
+              cn(
+                "mt-2 block px-3 py-2 rounded-md text-sm font-semibold transition-colors",
+                isActive ? "bg-indigo-100 text-indigo-700" : "text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900"
+              )
+            }
+          >
+            Knowledge Graph
+          </NavLink>
+          <NavLink
+            to="/practice"
+            className={({ isActive }) =>
+              cn(
+                "mt-2 block px-3 py-2 rounded-md text-sm font-semibold transition-colors",
+                isActive ? "bg-indigo-100 text-indigo-700" : "text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900"
+              )
+            }
+          >
+            Practice Lab
+          </NavLink>
+          <NavLink
             to="/library"
             className={({ isActive }) =>
               cn(
@@ -36,6 +69,17 @@ export function Sidebar() {
             }
           >
             Your Library
+          </NavLink>
+          <NavLink
+            to="/collab"
+            className={({ isActive }) =>
+              cn(
+                "mt-2 block px-3 py-2 rounded-md text-sm font-semibold transition-colors",
+                isActive ? "bg-indigo-100 text-indigo-700" : "text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900"
+              )
+            }
+          >
+            Collaboration
           </NavLink>
           <NavLink
             to="/learn"

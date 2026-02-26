@@ -59,6 +59,17 @@ export type AdminArticle = {
   created_at: string;
   updated_at: string;
   version: number;
+  status?: string;
+  references?: Array<{ title: string; url: string }> | null;
+};
+
+export type ArticleVersion = {
+  id: number;
+  article_id: number;
+  markdown: string;
+  status: string;
+  created_at: string;
+  created_by?: number | null;
   references?: Array<{ title: string; url: string }> | null;
 };
 
@@ -77,13 +88,36 @@ export async function getAdminArticle(id: number) {
 
 export async function updateAdminArticle(
   id: number,
-  payload: { markdown: string; references?: Array<{ title: string; url: string }> | null }
+  payload: { markdown: string; references?: Array<{ title: string; url: string }> | null; status?: string }
 ) {
   const data = await adminFetch(`/api/admin/article/${id}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });
   return data?.article as AdminArticle;
+}
+
+export async function createDraft(id: number, payload: { markdown: string; references?: Array<{ title: string; url: string }> | null }) {
+  const data = await adminFetch(`/api/admin/article/${id}/draft`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return data?.article as AdminArticle;
+}
+
+export async function approveDraft(id: number) {
+  const data = await adminFetch(`/api/admin/article/${id}/approve`, { method: "POST" });
+  return data?.version as ArticleVersion;
+}
+
+export async function publishDraft(id: number) {
+  const data = await adminFetch(`/api/admin/article/${id}/publish`, { method: "POST" });
+  return data?.article as AdminArticle;
+}
+
+export async function listArticleVersions(id: number) {
+  const data = await adminFetch(`/api/admin/article/${id}/versions`);
+  return data?.versions as ArticleVersion[];
 }
 
 export type IngestStatus = {

@@ -93,6 +93,16 @@ export function getReadingListById(db: Database, listId: number) {
   return stmt.get(listId) as ReadingListRecord | undefined;
 }
 
+export function getReadingListItems(db: Database, listId: number) {
+  const stmt = db.prepare(
+    `SELECT id, list_id, category, slug, topic, created_at
+     FROM reading_list_items
+     WHERE list_id = ?
+     ORDER BY datetime(created_at) DESC`
+  );
+  return stmt.all(listId) as ReadingListItemRecord[];
+}
+
 export function createReadingList(db: Database, userId: number, name: string) {
   const now = new Date().toISOString();
   const stmt = db.prepare(

@@ -11,12 +11,16 @@ import {
   type Bookmark,
   type ReadingList,
 } from "@/shared/services/libraryApi";
+import { listTeams, shareReadingList, type Team } from "@/shared/services/collabApi";
 import { titleFromSlug } from "@/shared/lib/slug";
 
 export function LibraryPage() {
   const { user } = useAuth();
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [lists, setLists] = useState<ReadingList[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [shareTargets, setShareTargets] = useState<Record<number, number | null>>({});
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [listName, setListName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,10 +29,39 @@ export function LibraryPage() {
     if (!user) return;
     setLoading(true);
     setError(null);
+    setShareMessage(null);
     try {
-      const [bm, rl] = await Promise.all([listBookmarks(), listReadingLists()]);
-      setBookmarks(bm || []);
-      setLists(rl || []);
+      const [bmResult, rlResult, teamResult] = await Promise.allSettled([
+        listBookmarks(),
+        listReadingLists(),
+        listTeams(),
+      ]);
+      if (bmResult.status === "fulfilled") {
+        setBookmarks(bmResult.value || []);
+      } else {
+        setBookmarks([]);
+      }
+      if (rlResult.status === "fulfilled") {
+        const readingLists = rlResult.value || [];
+        setLists(readingLists);
+        setShareTargets((prev) => {
+          const next: Record<number, number | null> = { ...prev };
+          readingLists.forEach((list) => {
+            if (!(list.id in next)) next[list.id] = null;
+          });
+          return next;
+        });
+      } else {
+        setLists([]);
+      }
+      if (teamResult.status === "fulfilled") {
+        setTeams(teamResult.value || []);
+      } else {
+        setTeams([]);
+      }
+      if (bmResult.status === "rejected" || rlResult.status === "rejected" || teamResult.status === "rejected") {
+        setError("Some library data could not be loaded.");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load library");
     } finally {
@@ -85,6 +118,17 @@ export function LibraryPage() {
     }
   };
 
+  const handleShareList = async (listId: number) => {
+    const teamId = shareTargets[listId];
+    if (!teamId) return;
+    try {
+      await shareReadingList(listId, teamId);
+      setShareMessage("Shared reading list with team.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to share list");
+    }
+  };
+
   if (!user) {
     return (
       <div className="bg-white border border-zinc-200 rounded-xl p-8 text-center">
@@ -110,6 +154,11 @@ export function LibraryPage() {
       {error ? (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
           {error}
+        </div>
+      ) : null}
+      {shareMessage ? (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-sm text-emerald-700">
+          {shareMessage}
         </div>
       ) : null}
 
@@ -176,6 +225,36 @@ export function LibraryPage() {
                     Delete
                   </button>
                 </div>
+                {teams.length > 0 ? (
+                  <div className="flex flex-col sm:flex-row gap-2 mt-3">
+                    <select
+                      value={shareTargets[list.id] || ""}
+                      onChange={(e) =>
+                        setShareTargets((prev) => ({
+                          ...prev,
+                          [list.id]: Number(e.target.value) || null,
+                        }))
+                      }
+                      className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-xs"
+                    >
+                      <option value="">Share with team...</option>
+                      {teams.map((team) => (
+                        <option key={team.id} value={team.id}>
+                          {team.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => handleShareList(list.id)}
+                      disabled={!shareTargets[list.id]}
+                      className="px-3 py-2 text-xs font-semibold bg-zinc-900 text-white rounded-md hover:bg-zinc-800 disabled:bg-zinc-300"
+                    >
+                      Share
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-xs text-zinc-400 mt-2">Create a team in Collaboration to share lists.</div>
+                )}
                 {list.items.length === 0 ? (
                   <div className="text-sm text-zinc-500 mt-2">No items yet.</div>
                 ) : (

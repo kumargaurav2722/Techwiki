@@ -9,6 +9,15 @@ import {
   listArticles,
   getArticleById,
   updateArticleById,
+  incrementArticleView,
+  listRecentArticles,
+  listTrendingArticles,
+  getRandomArticle,
+  listArticleVersions,
+  getLatestDraftVersion,
+  updateArticleVersionStatus,
+  createDraftVersion,
+  updateArticleStatus,
 } from "./articles";
 import { slugify, titleFromSlug } from "./utils/slugify";
 import { ingestLibrary, type IngestStatus } from "./ingest/library";
@@ -23,9 +32,22 @@ import {
   deleteReadingListItem,
   getReadingListById,
   getReadingLists,
+  getReadingListItems,
   listBookmarks,
   upsertBookmark,
 } from "./library";
+import {
+  createTeam,
+  listTeamsForUser,
+  addTeamMember,
+  createNote,
+  listNotes,
+  createComment,
+  listComments,
+  shareReadingList,
+  listSharedReadingLists,
+} from "./collab";
+import { buildGraph } from "./graph";
 
 dotenv.config();
 
@@ -73,6 +95,18 @@ function requireAdmin(req: AuthRequest, res: express.Response, next: express.Nex
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });
+});
+
+app.get("/api/graph", (req, res) => {
+  const mode = req.query.mode === "basic" ? "basic" : "linked";
+  const maxCrossEdges = Number(req.query.maxCrossEdges);
+  const limit = Number(req.query.limit);
+  const graph = buildGraph(db, {
+    mode,
+    maxCrossEdges: Number.isFinite(maxCrossEdges) ? maxCrossEdges : undefined,
+    limit: Number.isFinite(limit) ? limit : undefined,
+  });
+  return res.json(graph);
 });
 
 app.post("/api/auth/register", async (req, res) => {
@@ -133,6 +167,7 @@ app.get("/api/article/:category/:slug", async (req, res) => {
           parsedRefs = null;
         }
       }
+      incrementArticleView(db, existing.id);
       return res.json({ article: { ...existing, references: parsedRefs }, source: "cache" });
     }
 
@@ -159,6 +194,10 @@ app.get("/api/article/:category/:slug", async (req, res) => {
       } catch {
         parsedRefs = null;
       }
+    }
+
+    if (saved) {
+      incrementArticleView(db, saved.id);
     }
 
     return res.json({
@@ -192,6 +231,7 @@ app.post("/api/article/generate", async (req, res) => {
           parsedRefs = null;
         }
       }
+      incrementArticleView(db, existing.id);
       return res.json({ article: { ...existing, references: parsedRefs }, source: "cache" });
     }
 
@@ -222,6 +262,10 @@ app.post("/api/article/generate", async (req, res) => {
       }
     }
 
+    if (saved) {
+      incrementArticleView(db, saved.id);
+    }
+
     return res.json({
       article: saved ? { ...saved, references: parsedRefs } : null,
       source: existing ? "refreshed" : "generated",
@@ -247,6 +291,38 @@ app.get("/api/search", (req, res) => {
     console.error("/api/search error", error);
     return res.status(500).json({ error: "Search failed" });
   }
+});
+
+app.get("/api/articles/recent", (req, res) => {
+  const limit = typeof req.query.limit === "string" ? Number(req.query.limit) : 10;
+  const results = listRecentArticles(db, Number.isFinite(limit) ? limit : 10);
+  return res.json({ results });
+});
+
+app.get("/api/articles/trending", (req, res) => {
+  const limit = typeof req.query.limit === "string" ? Number(req.query.limit) : 10;
+  const results = listTrendingArticles(db, Number.isFinite(limit) ? limit : 10);
+  return res.json({ results });
+});
+
+app.get("/api/articles/random", (_req, res) => {
+  const article = getRandomArticle(db);
+  if (!article) return res.status(404).json({ error: "No articles found" });
+  return res.json({ article });
+});
+
+app.get("/api/stats", (_req, res) => {
+  const articleCount = db.prepare("SELECT COUNT(*) as count FROM articles").get() as { count: number };
+  const categoryCount = db
+    .prepare("SELECT COUNT(DISTINCT category) as count FROM articles")
+    .get() as { count: number };
+  const recent = listRecentArticles(db, 10);
+  const trending = listTrendingArticles(db, 10);
+  return res.json({
+    counts: { articles: articleCount.count, categories: categoryCount.count },
+    recent,
+    trending,
+  });
 });
 
 app.get("/api/admin/articles", requireAdmin, (req, res) => {
@@ -292,13 +368,18 @@ app.put("/api/admin/article/:id", requireAdmin, (req, res) => {
     return res.status(400).json({ error: "Invalid id" });
   }
 
-  const { markdown, references } = req.body || {};
+  const { markdown, references, status } = req.body || {};
   if (!markdown || typeof markdown !== "string") {
     return res.status(400).json({ error: "markdown is required" });
   }
 
   try {
-    const updated = updateArticleById(db, id, { markdown, references });
+    const updated = updateArticleById(db, id, {
+      markdown,
+      references,
+      status: status || "published",
+      createdBy: req.user?.id ?? null,
+    });
     if (!updated) {
       return res.status(404).json({ error: "Not found" });
     }
@@ -315,6 +396,68 @@ app.put("/api/admin/article/:id", requireAdmin, (req, res) => {
     console.error("/api/admin/article/:id error", error);
     return res.status(500).json({ error: "Failed to update article" });
   }
+});
+
+app.get("/api/admin/article/:id/versions", requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) {
+    return res.status(400).json({ error: "Invalid id" });
+  }
+  const versions = listArticleVersions(db, id).map((version) => {
+    let refs = null;
+    if (version.references_json) {
+      try {
+        refs = JSON.parse(version.references_json);
+      } catch {
+        refs = null;
+      }
+    }
+    return { ...version, references: refs };
+  });
+  return res.json({ versions });
+});
+
+app.post("/api/admin/article/:id/draft", requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid id" });
+  const { markdown, references } = req.body || {};
+  if (!markdown || typeof markdown !== "string") {
+    return res.status(400).json({ error: "markdown is required" });
+  }
+
+  const updated = createDraftVersion(db, id, {
+    markdown,
+    references,
+    createdBy: req.user?.id ?? null,
+  });
+  if (!updated) return res.status(404).json({ error: "Not found" });
+  return res.json({ article: updated });
+});
+
+app.post("/api/admin/article/:id/approve", requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid id" });
+  const latestDraft = getLatestDraftVersion(db, id);
+  if (!latestDraft) return res.status(404).json({ error: "No draft found" });
+  const updated = updateArticleVersionStatus(db, latestDraft.id, "approved");
+  updateArticleStatus(db, id, "approved");
+  return res.json({ version: updated });
+});
+
+app.post("/api/admin/article/:id/publish", requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid id" });
+  const latestDraft = getLatestDraftVersion(db, id);
+  if (!latestDraft) return res.status(404).json({ error: "No draft found" });
+  const refs = latestDraft.references_json ? JSON.parse(latestDraft.references_json) : undefined;
+  const updated = updateArticleById(db, id, {
+    markdown: latestDraft.markdown,
+    references: refs,
+    status: "published",
+    createdBy: req.user?.id ?? null,
+  });
+  updateArticleVersionStatus(db, latestDraft.id, "published");
+  return res.json({ article: updated });
 });
 
 app.post("/api/admin/ingest", requireAdmin, async (req, res) => {
@@ -437,6 +580,95 @@ app.delete(
     return res.json({ ok: true });
   }
 );
+
+app.post("/api/library/reading-lists/:id/share", requireAuth, (req: AuthRequest, res) => {
+  const listId = Number(req.params.id);
+  if (!Number.isFinite(listId)) return res.status(400).json({ error: "Invalid id" });
+  const { teamId } = req.body || {};
+  if (!teamId) return res.status(400).json({ error: "teamId required" });
+  const list = getReadingListById(db, listId);
+  if (!list || list.user_id !== req.user!.id) {
+    return res.status(404).json({ error: "List not found" });
+  }
+  shareReadingList(db, listId, Number(teamId));
+  return res.json({ ok: true });
+});
+
+app.get("/api/library/shared", requireAuth, (req: AuthRequest, res) => {
+  const shared = listSharedReadingLists(db, req.user!.id);
+  const lists = shared.map((entry) => ({
+    ...entry,
+    items: getReadingListItems(db, entry.list_id),
+  }));
+  return res.json({ lists });
+});
+
+app.get("/api/teams", requireAuth, (req: AuthRequest, res) => {
+  const teams = listTeamsForUser(db, req.user!.id);
+  return res.json({ teams });
+});
+
+app.post("/api/teams", requireAuth, (req: AuthRequest, res) => {
+  const { name } = req.body || {};
+  if (!name || typeof name !== "string") {
+    return res.status(400).json({ error: "name required" });
+  }
+  const team = createTeam(db, req.user!.id, name.trim());
+  return res.json({ team });
+});
+
+app.post("/api/teams/:id/members", requireAuth, (req: AuthRequest, res) => {
+  const teamId = Number(req.params.id);
+  if (!Number.isFinite(teamId)) return res.status(400).json({ error: "Invalid id" });
+  const { email } = req.body || {};
+  if (!email || typeof email !== "string") {
+    return res.status(400).json({ error: "email required" });
+  }
+  const team = db.prepare("SELECT * FROM teams WHERE id = ?").get(teamId) as { id: number; owner_id: number } | undefined;
+  if (!team || team.owner_id !== req.user!.id) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  const user = getUserByEmail(db, email);
+  if (!user) return res.status(404).json({ error: "User not found" });
+  addTeamMember(db, teamId, user.id);
+  return res.json({ ok: true });
+});
+
+app.get("/api/notes/:articleId", requireAuth, (req: AuthRequest, res) => {
+  const articleId = Number(req.params.articleId);
+  if (!Number.isFinite(articleId)) return res.status(400).json({ error: "Invalid article id" });
+  const notes = listNotes(db, req.user!.id, articleId);
+  return res.json({ notes });
+});
+
+app.post("/api/notes/:articleId", requireAuth, (req: AuthRequest, res) => {
+  const articleId = Number(req.params.articleId);
+  if (!Number.isFinite(articleId)) return res.status(400).json({ error: "Invalid article id" });
+  const { content } = req.body || {};
+  if (!content || typeof content !== "string") {
+    return res.status(400).json({ error: "content required" });
+  }
+  const note = createNote(db, req.user!.id, articleId, content.trim());
+  return res.json({ note });
+});
+
+app.get("/api/comments/:articleId", requireAuth, (req: AuthRequest, res) => {
+  const articleId = Number(req.params.articleId);
+  if (!Number.isFinite(articleId)) return res.status(400).json({ error: "Invalid article id" });
+  const comments = listComments(db, articleId);
+  return res.json({ comments });
+});
+
+app.post("/api/comments/:articleId", requireAuth, (req: AuthRequest, res) => {
+  const articleId = Number(req.params.articleId);
+  if (!Number.isFinite(articleId)) return res.status(400).json({ error: "Invalid article id" });
+  const { content } = req.body || {};
+  if (!content || typeof content !== "string") {
+    return res.status(400).json({ error: "content required" });
+  }
+  const comment = createComment(db, req.user!.id, articleId, content.trim());
+  return res.json({ comment });
+});
 
 if (process.env.INGEST_ON_BOOT === "true") {
   const bootCategory = process.env.INGEST_CATEGORY || undefined;
