@@ -18,12 +18,13 @@ import {
   updateArticleVersionStatus,
   createDraftVersion,
   updateArticleStatus,
+  getArticleVersionById,
 } from "./articles";
 import { slugify, titleFromSlug } from "./utils/slugify";
 import { ingestLibrary, type IngestStatus } from "./ingest/library";
 import { parseReferencesFromMarkdown } from "./utils/references";
 import { comparePassword, ensureAdminUser, hashPassword, signToken, verifyToken } from "./auth";
-import { createUser, getUserByEmail } from "./users";
+import { clearExpiredBan, createUser, getUserByEmail, getUserById, listUsers, updateUserBan } from "./users";
 import {
   addReadingListItem,
   createReadingList,
@@ -55,6 +56,7 @@ import {
 } from "./collab";
 import { buildGraph } from "./graph";
 import { executeRunner } from "./runner";
+import { containsModerationKeyword, getModerationAction } from "./utils/moderation";
 
 dotenv.config();
 
@@ -175,6 +177,18 @@ app.post("/api/auth/login", async (req, res) => {
 
   const valid = await comparePassword(String(password), user.password_hash);
   if (!valid) return res.status(401).json({ error: "Invalid credentials" });
+
+  if (user.status === "banned") {
+    if (user.banned_until) {
+      clearExpiredBan(db, user.id);
+      const refreshed = getUserById(db, user.id);
+      if (refreshed?.status === "banned") {
+        return res.status(403).json({ error: "Account is banned" });
+      }
+    } else {
+      return res.status(403).json({ error: "Account is banned" });
+    }
+  }
 
   const token = signToken({ id: user.id, email: user.email, role: user.role });
   return res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
@@ -492,6 +506,40 @@ app.post("/api/admin/article/:id/publish", requireAdmin, (req, res) => {
   return res.json({ article: updated });
 });
 
+app.post("/api/admin/article/:id/restore", requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid id" });
+  const { versionId, publish } = req.body || {};
+  const numericVersionId = Number(versionId);
+  if (!Number.isFinite(numericVersionId)) {
+    return res.status(400).json({ error: "versionId is required" });
+  }
+
+  const version = getArticleVersionById(db, numericVersionId);
+  if (!version || version.article_id !== id) {
+    return res.status(404).json({ error: "Version not found" });
+  }
+
+  let parsedRefs = null;
+  if (version.references_json) {
+    try {
+      parsedRefs = JSON.parse(version.references_json);
+    } catch {
+      parsedRefs = null;
+    }
+  }
+
+  const status = publish ? "published" : "draft";
+  const updated = updateArticleById(db, id, {
+    markdown: version.markdown,
+    references: parsedRefs,
+    status,
+    createdBy: req.user?.id ?? null,
+  });
+  if (!updated) return res.status(404).json({ error: "Not found" });
+  return res.json({ article: { ...updated, references: parsedRefs } });
+});
+
 app.post("/api/admin/ingest", requireAdmin, async (req, res) => {
   if (ingestStatus?.state === "running") {
     return res.status(409).json({ error: "Ingestion already running" });
@@ -698,8 +746,30 @@ app.post("/api/comments/:articleId", requireAuth, (req: AuthRequest, res) => {
   if (!content || typeof content !== "string") {
     return res.status(400).json({ error: "content required" });
   }
-  const comment = createComment(db, req.user!.id, articleId, content.trim());
-  return res.json({ comment });
+
+  const userRecord = getUserById(db, req.user!.id);
+  if (userRecord?.status === "banned") {
+    if (userRecord.banned_until) {
+      clearExpiredBan(db, userRecord.id);
+      const refreshed = getUserById(db, userRecord.id);
+      if (refreshed?.status === "banned") {
+        return res.status(403).json({ error: "Account is banned" });
+      }
+    } else {
+      return res.status(403).json({ error: "Account is banned" });
+    }
+  }
+
+  const trimmed = content.trim();
+  const hasKeyword = containsModerationKeyword(trimmed);
+  const action = getModerationAction();
+  if (hasKeyword && action === "reject") {
+    return res.status(400).json({ error: "Comment contains restricted terms" });
+  }
+
+  const status = hasKeyword && action === "hide" ? "hidden" : "visible";
+  const comment = createComment(db, req.user!.id, articleId, trimmed, status);
+  return res.json({ comment, moderated: status !== "visible" });
 });
 
 app.post("/api/comments/:commentId/report", requireAuth, (req: AuthRequest, res) => {
@@ -744,6 +814,40 @@ app.post("/api/admin/comment-reports/:id/action", requireAdmin, (req: AuthReques
   }
 
   return res.status(400).json({ error: "Invalid action" });
+});
+
+app.get("/api/admin/users", requireAdmin, (req: AuthRequest, res) => {
+  const query = typeof req.query.query === "string" ? req.query.query : undefined;
+  const status = typeof req.query.status === "string" ? req.query.status : undefined;
+  const users = listUsers(db, { query, status });
+  return res.json({ users });
+});
+
+app.post("/api/admin/users/:id/ban", requireAdmin, (req: AuthRequest, res) => {
+  const userId = Number(req.params.id);
+  if (!Number.isFinite(userId)) return res.status(400).json({ error: "Invalid user id" });
+  const { reason, until } = req.body || {};
+  const bannedUntil = typeof until === "string" && until.trim() ? until.trim() : null;
+  const banReason = typeof reason === "string" && reason.trim() ? reason.trim() : null;
+  const updated = updateUserBan(db, userId, {
+    status: "banned",
+    banReason,
+    bannedUntil,
+  });
+  if (!updated) return res.status(404).json({ error: "User not found" });
+  return res.json({ user: updated });
+});
+
+app.post("/api/admin/users/:id/unban", requireAdmin, (req: AuthRequest, res) => {
+  const userId = Number(req.params.id);
+  if (!Number.isFinite(userId)) return res.status(400).json({ error: "Invalid user id" });
+  const updated = updateUserBan(db, userId, {
+    status: "active",
+    banReason: null,
+    bannedUntil: null,
+  });
+  if (!updated) return res.status(404).json({ error: "User not found" });
+  return res.json({ user: updated });
 });
 
 if (process.env.INGEST_ON_BOOT === "true") {

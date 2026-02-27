@@ -38,6 +38,7 @@ export type Comment = {
   article_id: number;
   content: string;
   created_at: string;
+  status?: string;
 };
 
 export type SharedList = {
@@ -91,7 +92,15 @@ export async function createComment(articleId: number, content: string) {
     method: "POST",
     body: JSON.stringify({ content }),
   });
-  return data?.comment as Comment;
+  return { comment: data?.comment as Comment, moderated: Boolean(data?.moderated) };
+}
+
+export async function reportComment(commentId: number, reason?: string) {
+  const data = await authFetch(`/api/comments/${commentId}/report`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+  return data?.report;
 }
 
 export async function shareReadingList(listId: number, teamId: number) {

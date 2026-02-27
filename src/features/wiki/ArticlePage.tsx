@@ -18,6 +18,7 @@ import {
   createNote,
   listComments,
   listNotes,
+  reportComment,
   type Comment,
   type Note,
 } from "@/shared/services/collabApi";
@@ -40,6 +41,9 @@ export function ArticlePage() {
   const [noteText, setNoteText] = useState("");
   const [commentText, setCommentText] = useState("");
   const [collabError, setCollabError] = useState<string | null>(null);
+  const [reportingCommentId, setReportingCommentId] = useState<number | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const [reportMessage, setReportMessage] = useState<string | null>(null);
   const { user } = useAuth();
 
   const displayTopic = topic ? titleFromSlug(topic) : "Unknown Topic";
@@ -186,12 +190,29 @@ export function ArticlePage() {
   const handlePostComment = async () => {
     if (!user || !articleId || !commentText.trim()) return;
     try {
-      const comment = await createComment(articleId, commentText.trim());
-      setComments((prev) => [comment, ...prev]);
+      const result = await createComment(articleId, commentText.trim());
+      if (result.comment && !result.moderated && result.comment.status !== "hidden") {
+        setComments((prev) => [result.comment, ...prev]);
+        setReportMessage(null);
+      } else {
+        setReportMessage("Comment submitted for review.");
+      }
       setCommentText("");
       setCollabError(null);
     } catch (err) {
       setCollabError(err instanceof Error ? err.message : "Failed to post comment");
+    }
+  };
+
+  const handleReportComment = async (commentId: number) => {
+    if (!user) return;
+    try {
+      await reportComment(commentId, reportReason.trim() || undefined);
+      setReportMessage("Report submitted. Thanks for helping keep TechWiki clean.");
+      setReportingCommentId(null);
+      setReportReason("");
+    } catch (err) {
+      setCollabError(err instanceof Error ? err.message : "Failed to submit report");
     }
   };
 
@@ -338,6 +359,11 @@ export function ArticlePage() {
           <h2 className="text-xl font-serif font-bold text-zinc-900">Notes and Discussion</h2>
           {collabError ? <span className="text-xs text-red-600">{collabError}</span> : null}
         </div>
+        {reportMessage ? (
+          <div className="mb-3 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
+            {reportMessage}
+          </div>
+        ) : null}
         {!user ? (
           <div className="text-sm text-zinc-500">
             <Link to="/login" className="text-indigo-600 hover:underline">
@@ -402,6 +428,47 @@ export function ArticlePage() {
                       <div className="text-sm text-zinc-700 whitespace-pre-wrap">{comment.content}</div>
                       <div className="text-xs text-zinc-400 mt-2">
                         User #{comment.user_id} on {new Date(comment.created_at).toLocaleString()}
+                      </div>
+                      <div className="mt-2">
+                        {reportingCommentId === comment.id ? (
+                          <div className="space-y-2">
+                            <textarea
+                              value={reportReason}
+                              onChange={(e) => setReportReason(e.target.value)}
+                              rows={2}
+                              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-xs"
+                              placeholder="Optional: why are you reporting this comment?"
+                            />
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleReportComment(comment.id)}
+                                className="px-3 py-1 text-xs font-semibold bg-red-600 text-white rounded-md hover:bg-red-700"
+                              >
+                                Submit Report
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setReportingCommentId(null);
+                                  setReportReason("");
+                                }}
+                                className="px-3 py-1 text-xs font-semibold bg-zinc-100 text-zinc-700 rounded-md hover:bg-zinc-200"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setReportingCommentId(comment.id);
+                              setReportReason("");
+                              setReportMessage(null);
+                            }}
+                            className="text-xs text-red-600 hover:underline"
+                          >
+                            Report
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}

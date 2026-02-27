@@ -119,13 +119,19 @@ export function listComments(db: Database, articleId: number) {
   return stmt.all(articleId) as CommentRecord[];
 }
 
-export function createComment(db: Database, userId: number, articleId: number, content: string) {
+export function createComment(
+  db: Database,
+  userId: number,
+  articleId: number,
+  content: string,
+  status: "visible" | "hidden" = "visible"
+) {
   const now = new Date().toISOString();
   const stmt = db.prepare(
     `INSERT INTO comments (user_id, article_id, content, created_at, updated_at, status)
-     VALUES (?, ?, ?, ?, ?, 'visible')`
+     VALUES (?, ?, ?, ?, ?, ?)`
   );
-  const info = stmt.run(userId, articleId, content, now, now);
+  const info = stmt.run(userId, articleId, content, now, now, status);
   return db.prepare("SELECT * FROM comments WHERE id = ?").get(info.lastInsertRowid) as CommentRecord | undefined;
 }
 

@@ -115,6 +115,17 @@ export async function publishDraft(id: number) {
   return data?.article as AdminArticle;
 }
 
+export async function restoreArticleVersion(
+  id: number,
+  payload: { versionId: number; publish?: boolean }
+) {
+  const data = await adminFetch(`/api/admin/article/${id}/restore`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return data?.article as AdminArticle;
+}
+
 export async function listArticleVersions(id: number) {
   const data = await adminFetch(`/api/admin/article/${id}/versions`);
   return data?.versions as ArticleVersion[];
@@ -141,4 +152,72 @@ export async function startIngestion(payload?: { limit?: number; category?: stri
 export async function getIngestionStatus() {
   const data = await adminFetch(`/api/admin/ingest/status`);
   return data?.status as IngestStatus | null;
+}
+
+export type CommentReport = {
+  id: number;
+  comment_id: number;
+  reporter_id: number;
+  reason?: string | null;
+  status: string;
+  created_at: string;
+  resolved_at?: string | null;
+  resolved_by?: number | null;
+  comment_content?: string;
+  comment_status?: string;
+  comment_user_id?: number;
+  reporter_email?: string | null;
+  comment_author_email?: string | null;
+  article_id?: number;
+  article_category?: string;
+  article_slug?: string;
+  article_topic?: string;
+};
+
+export async function listCommentReports(status?: string) {
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  const url = `/api/admin/comment-reports${params.toString() ? `?${params.toString()}` : ""}`;
+  const data = await adminFetch(url);
+  return (data?.reports || []) as CommentReport[];
+}
+
+export async function actOnCommentReport(id: number, action: "dismiss" | "resolve" | "hide") {
+  const data = await adminFetch(`/api/admin/comment-reports/${id}/action`, {
+    method: "POST",
+    body: JSON.stringify({ action }),
+  });
+  return data?.report as CommentReport;
+}
+
+export type AdminUser = {
+  id: number;
+  email: string;
+  role: string;
+  status?: string;
+  ban_reason?: string | null;
+  banned_until?: string | null;
+  created_at: string;
+};
+
+export async function listAdminUsers(query?: string, status?: string) {
+  const params = new URLSearchParams();
+  if (query) params.set("query", query);
+  if (status) params.set("status", status);
+  const url = `/api/admin/users${params.toString() ? `?${params.toString()}` : ""}`;
+  const data = await adminFetch(url);
+  return (data?.users || []) as AdminUser[];
+}
+
+export async function banAdminUser(id: number, payload?: { reason?: string; until?: string }) {
+  const data = await adminFetch(`/api/admin/users/${id}/ban`, {
+    method: "POST",
+    body: JSON.stringify(payload || {}),
+  });
+  return data?.user as AdminUser;
+}
+
+export async function unbanAdminUser(id: number) {
+  const data = await adminFetch(`/api/admin/users/${id}/unban`, { method: "POST" });
+  return data?.user as AdminUser;
 }

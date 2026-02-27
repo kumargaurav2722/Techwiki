@@ -37,6 +37,8 @@ View your app in AI Studio: https://ai.studio/apps/e0d6b4f8-d19d-49ce-a058-dc323
    `CODE_RUNNER_DEFAULT_VERSION=latest` (optional)
    `CODE_RUNNER_RUN_TIMEOUT_MS=3000` (optional)
    `CODE_RUNNER_COMPILE_TIMEOUT_MS=10000` (optional)
+   `MODERATION_KEYWORDS=spam,scam,offensive` (optional, comma-separated)
+   `MODERATION_KEYWORD_ACTION=reject` (or `hide`)
 3. Start the API server (port 4000):
    `npm run dev:server`
 4. Start the frontend (port 3000):
@@ -57,3 +59,28 @@ Library: open `/library` for bookmarks and reading lists. Sign in via `/login`.
 Explore: open `/explore` for trending, recent, and topic browsing.
 
 Practice: open `/practice` for quizzes, system design prompts, and multi-language code execution.
+
+## Features
+
+- AI-generated, in-depth technical articles across DSA, system design, programming languages, devops, databases, and more
+- Provider switch for AI generation (`AI_PROVIDER=gemini|groq`)
+- On-demand generation with caching in SQLite (`server/data/techwiki.db`)
+- Background ingestion for a prebuilt topic library (manual or on boot)
+- Real citation sourcing with RAG (Wikipedia or Tavily) and inline references
+- Full-text search (FTS5) with snippets
+- Explore hub with trending, recent, random, and per-category browsing
+- Knowledge graph concept map driven by the API (nodes + cross-links)
+- Learning paths for curated study tracks
+- Practice lab with quizzes, system design prompts, and a multi-language code runner
+- Admin editor for curated content, references, and article lifecycle
+- Drafts, approvals, publishing workflow with version history
+- Restore any version to draft or publish
+- Version diff view for side-by-side changes
+- User accounts with JWT auth and role-based admin access
+- Library with bookmarks and reading lists
+- Team collaboration with shared reading lists
+- Notes per article and public comments
+- Comment reporting and moderation queue
+- Keyword filtering and auto-hide or reject actions
+- User moderation with ban and unban controls
+- Article view counts and basic analytics for trending

@@ -191,6 +191,15 @@ export function listArticleVersions(db: Database, articleId: number) {
   return stmt.all(articleId) as ArticleVersionRecord[];
 }
 
+export function getArticleVersionById(db: Database, versionId: number) {
+  const stmt = db.prepare(
+    `SELECT id, article_id, markdown, references_json, status, created_at, created_by
+     FROM article_versions
+     WHERE id = ?`
+  );
+  return stmt.get(versionId) as ArticleVersionRecord | undefined;
+}
+
 export function getLatestDraftVersion(db: Database, articleId: number) {
   const stmt = db.prepare(
     `SELECT id, article_id, markdown, references_json, status, created_at, created_by

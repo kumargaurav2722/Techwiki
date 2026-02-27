@@ -74,6 +74,9 @@ export function initDb() {
       email TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'user',
+      status TEXT NOT NULL DEFAULT 'active',
+      ban_reason TEXT,
+      banned_until TEXT,
       created_at TEXT NOT NULL
     );
 
@@ -202,6 +205,16 @@ export function initDb() {
     "current_version",
     "ALTER TABLE articles ADD COLUMN current_version INTEGER NOT NULL DEFAULT 1"
   );
+
+  const userColumns = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+  const ensureUserColumn = (name: string, ddl: string) => {
+    if (!userColumns.some((col) => col.name === name)) {
+      db.exec(ddl);
+    }
+  };
+  ensureUserColumn("status", "ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
+  ensureUserColumn("ban_reason", "ALTER TABLE users ADD COLUMN ban_reason TEXT");
+  ensureUserColumn("banned_until", "ALTER TABLE users ADD COLUMN banned_until TEXT");
 
   const commentColumns = db.prepare("PRAGMA table_info(comments)").all() as Array<{ name: string }>;
   const ensureCommentColumn = (name: string, ddl: string) => {
