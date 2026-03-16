@@ -1,4 +1,5 @@
 import express from "express";
+import path from "path";
 import dotenv from "dotenv";
 import { initDb } from "./db";
 import { generateArticleMarkdown } from "./ai/generate";
@@ -901,6 +902,22 @@ if (process.env.INGEST_ON_BOOT === "true") {
       };
     });
 }
+
+// In production, serve the compiled frontend React app
+if (process.env.NODE_ENV === "production" || process.env.NODE_ENV === "preview") {
+  const distPath = path.resolve(process.cwd(), "dist");
+  app.use(express.static(distPath));
+
+  // Catch-all route to serve index.html for React Router
+  app.get("*", (req, res) => {
+    res.sendFile(path.resolve(distPath, "index.html"));
+  });
+}
+
+// 404 handler for API routes
+app.use("/api/*", (req, res) => {
+  res.status(404).json({ error: "API endpoint not found" });
+});
 
 app.listen(port, () => {
   console.log(`TechWiki API listening on :${port}`);
