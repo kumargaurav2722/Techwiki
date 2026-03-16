@@ -7,6 +7,7 @@ const LANGUAGE_LABELS: Record<string, string> = {
   javascript: "JavaScript",
   python: "Python",
   java: "Java",
+  cpp: "C++",
 };
 
 function runJavaScript(code: string, timeoutMs = 1500): Promise<{ output: string; error?: string }> {
@@ -124,27 +125,24 @@ export function PracticePage() {
 
       <div className="flex gap-2">
         <button
-          className={`px-4 py-2 rounded-md text-sm font-semibold ${
-            tab === "quiz" ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-700"
-          }`}
+          className={`px-4 py-2 rounded-md text-sm font-semibold ${tab === "quiz" ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-700"
+            }`}
           onClick={() => setTab("quiz")}
         >
           <BookOpen className="w-4 h-4 inline-block mr-2" />
           Quizzes
         </button>
         <button
-          className={`px-4 py-2 rounded-md text-sm font-semibold ${
-            tab === "system" ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-700"
-          }`}
+          className={`px-4 py-2 rounded-md text-sm font-semibold ${tab === "system" ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-700"
+            }`}
           onClick={() => setTab("system")}
         >
           <Brain className="w-4 h-4 inline-block mr-2" />
           System Design
         </button>
         <button
-          className={`px-4 py-2 rounded-md text-sm font-semibold ${
-            tab === "code" ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-700"
-          }`}
+          className={`px-4 py-2 rounded-md text-sm font-semibold ${tab === "code" ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-700"
+            }`}
           onClick={() => setTab("code")}
         >
           <Code2 className="w-4 h-4 inline-block mr-2" />

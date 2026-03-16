@@ -59,10 +59,12 @@ export async function ingestLibrary(db: Database, options: IngestOptions = {}) {
     const existing = getArticle(db, item.category, slug);
     if (!existing) {
       try {
-        const markdown = await generateArticleMarkdown({
+        const result = await generateArticleMarkdown({
           category: item.category,
           topic: item.topic,
+          userTier: "free",
         });
+        const markdown = result.markdown;
         if (markdown.trim()) {
           const references = parseReferencesFromMarkdown(markdown);
           upsertArticle(db, {

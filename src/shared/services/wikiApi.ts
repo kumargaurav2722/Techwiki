@@ -14,6 +14,7 @@ export type Article = {
 export type ArticleResponse = {
   article: Article;
   source: "cache" | "generated" | "refreshed";
+  provider?: "gemini" | "groq";
 };
 
 export async function fetchArticle(
@@ -25,11 +26,19 @@ export async function fetchArticle(
   if (options?.refresh) params.set("refresh", "true");
   if (options?.topic) params.set("topic", options.topic);
 
-  const url = `/api/article/${encodeURIComponent(category)}/${encodeURIComponent(slug)}${
-    params.toString() ? `?${params.toString()}` : ""
-  }`;
+  const url = `/api/article/${encodeURIComponent(category)}/${encodeURIComponent(slug)}${params.toString() ? `?${params.toString()}` : ""
+    }`;
 
-  const res = await fetch(url);
+  // Include auth token if available so server can detect user tier
+  const headers: Record<string, string> = {};
+  try {
+    const token = localStorage.getItem("techwiki_auth_token") || "";
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+  } catch {
+    // ignore
+  }
+
+  const res = await fetch(url, { headers });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data?.error || "Failed to load article");

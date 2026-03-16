@@ -12,6 +12,7 @@
 
 body {
   @apply bg-zinc-50 text-zinc-900 antialiased;
+  transition: background-color 0.3s, color 0.3s;
 }
 
 mark {
@@ -19,4 +20,126 @@ mark {
   color: #1f2937;
   padding: 0 0.15rem;
   border-radius: 0.25rem;
+}
+
+/* ── Dark Mode ─────────────────────────────────────────── */
+html.dark body {
+  background-color: #09090b;
+  color: #e4e4e7;
+}
+
+html.dark .bg-white {
+  background-color: #18181b !important;
+}
+
+html.dark .bg-zinc-50 {
+  background-color: #09090b !important;
+}
+
+html.dark .bg-zinc-100 {
+  background-color: #18181b !important;
+}
+
+html.dark .border-zinc-200 {
+  border-color: #27272a !important;
+}
+
+html.dark .border-zinc-300 {
+  border-color: #3f3f46 !important;
+}
+
+html.dark .text-zinc-900 {
+  color: #fafafa !important;
+}
+
+html.dark .text-zinc-800 {
+  color: #e4e4e7 !important;
+}
+
+html.dark .text-zinc-700 {
+  color: #d4d4d8 !important;
+}
+
+html.dark .text-zinc-600 {
+  color: #a1a1aa !important;
+}
+
+html.dark .text-zinc-500 {
+  color: #71717a !important;
+}
+
+html.dark .text-zinc-400 {
+  color: #52525b !important;
+}
+
+html.dark input,
+html.dark textarea,
+html.dark select {
+  background-color: #27272a;
+  color: #e4e4e7;
+  border-color: #3f3f46;
+}
+
+html.dark .prose {
+  color: #d4d4d8;
+}
+
+html.dark .prose h1,
+html.dark .prose h2,
+html.dark .prose h3,
+html.dark .prose h4 {
+  color: #fafafa;
+}
+
+html.dark .prose strong {
+  color: #fafafa;
+}
+
+html.dark .prose code {
+  color: #818cf8;
+  background-color: rgba(99, 102, 241, 0.15);
+}
+
+html.dark .prose a {
+  color: #818cf8;
+}
+
+html.dark .prose blockquote {
+  color: #a1a1aa;
+  border-color: #3f3f46;
+}
+
+html.dark .prose li::marker {
+  color: #52525b;
+}
+
+html.dark .prose td,
+html.dark .prose th {
+  border-color: #3f3f46;
+}
+
+html.dark .prose th {
+  color: #fafafa;
+}
+
+html.dark mark {
+  background-color: #854d0e;
+  color: #fef3c7;
+}
+
+/* Dark mode for specific component backgrounds */
+html.dark .bg-indigo-50 {
+  background-color: rgba(99, 102, 241, 0.1) !important;
+}
+
+html.dark .bg-red-50 {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+}
+
+html.dark .bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.1) !important;
+}
+
+html.dark .bg-amber-50 {
+  background-color: rgba(245, 158, 11, 0.1) !important;
 }

@@ -215,6 +215,7 @@ export function initDb() {
   ensureUserColumn("status", "ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
   ensureUserColumn("ban_reason", "ALTER TABLE users ADD COLUMN ban_reason TEXT");
   ensureUserColumn("banned_until", "ALTER TABLE users ADD COLUMN banned_until TEXT");
+  ensureUserColumn("plan", "ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'free'");
 
   const commentColumns = db.prepare("PRAGMA table_info(comments)").all() as Array<{ name: string }>;
   const ensureCommentColumn = (name: string, ddl: string) => {

@@ -221,3 +221,14 @@ export async function unbanAdminUser(id: number) {
   const data = await adminFetch(`/api/admin/users/${id}/unban`, { method: "POST" });
   return data?.user as AdminUser;
 }
+
+export type AnalyticsData = {
+  counts: { articles: number; categories: number };
+  recent: Array<{ id: number; category: string; slug: string; topic: string; views?: number; updated_at?: string }>;
+  trending: Array<{ id: number; category: string; slug: string; topic: string; views?: number; updated_at?: string }>;
+};
+
+export async function fetchAnalytics() {
+  const data = await adminFetch("/api/stats");
+  return data as AnalyticsData;
+}

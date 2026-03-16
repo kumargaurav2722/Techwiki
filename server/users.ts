@@ -5,6 +5,7 @@ export type UserRecord = {
   email: string;
   password_hash: string;
   role: string;
+  plan: string;
   status?: string;
   ban_reason?: string | null;
   banned_until?: string | null;
@@ -40,7 +41,7 @@ export function listUsers(db: Database, options?: { query?: string; status?: str
   const query = options?.query?.trim().toLowerCase();
   const status = options?.status;
 
-  let sql = "SELECT id, email, role, status, ban_reason, banned_until, created_at FROM users";
+  let sql = "SELECT id, email, role, plan, status, ban_reason, banned_until, created_at FROM users";
   const clauses: string[] = [];
   const params: Array<string> = [];
 
@@ -82,4 +83,13 @@ export function clearExpiredBan(db: Database, userId: number) {
      SET status = 'active', ban_reason = NULL, banned_until = NULL
      WHERE id = ? AND banned_until IS NOT NULL AND datetime(banned_until) <= datetime(?)`
   ).run(userId, now);
+}
+
+export function updateUserPlan(
+  db: Database,
+  userId: number,
+  plan: "free" | "premium"
+) {
+  db.prepare("UPDATE users SET plan = ? WHERE id = ?").run(plan, userId);
+  return getUserById(db, userId);
 }

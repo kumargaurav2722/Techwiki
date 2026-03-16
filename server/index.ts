@@ -24,7 +24,7 @@ import { slugify, titleFromSlug } from "./utils/slugify";
 import { ingestLibrary, type IngestStatus } from "./ingest/library";
 import { parseReferencesFromMarkdown } from "./utils/references";
 import { comparePassword, ensureAdminUser, hashPassword, signToken, verifyToken } from "./auth";
-import { clearExpiredBan, createUser, getUserByEmail, getUserById, listUsers, updateUserBan } from "./users";
+import { clearExpiredBan, createUser, getUserByEmail, getUserById, listUsers, updateUserBan, updateUserPlan } from "./users";
 import {
   addReadingListItem,
   createReadingList,
@@ -58,7 +58,8 @@ import { buildGraph } from "./graph";
 import { executeRunner } from "./runner";
 import { containsModerationKeyword, getModerationAction } from "./utils/moderation";
 
-dotenv.config();
+dotenv.config(); // Trigger reload
+
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
@@ -71,7 +72,7 @@ ensureAdminUser(db).catch((error) => {
 
 app.use(express.json({ limit: "2mb" }));
 
-type AuthRequest = express.Request & { user?: { id: number; email: string; role: string } };
+type AuthRequest = express.Request & { user?: { id: number; email: string; role: string; plan: string } };
 
 function getUserFromRequest(req: AuthRequest) {
   const header = req.header("authorization") || "";
@@ -158,8 +159,8 @@ app.post("/api/auth/register", async (req, res) => {
     const passwordHash = await hashPassword(String(password));
     const user = createUser(db, { email: String(email), passwordHash });
     if (!user) return res.status(500).json({ error: "Failed to create user" });
-    const token = signToken({ id: user.id, email: user.email, role: user.role });
-    return res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
+    const token = signToken({ id: user.id, email: user.email, role: user.role, plan: user.plan || "free" });
+    return res.json({ token, user: { id: user.id, email: user.email, role: user.role, plan: user.plan || "free" } });
   } catch (error) {
     console.error("/api/auth/register error", error);
     return res.status(500).json({ error: "Registration failed" });
@@ -190,17 +191,34 @@ app.post("/api/auth/login", async (req, res) => {
     }
   }
 
-  const token = signToken({ id: user.id, email: user.email, role: user.role });
-  return res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
+  const token = signToken({ id: user.id, email: user.email, role: user.role, plan: user.plan || "free" });
+  return res.json({ token, user: { id: user.id, email: user.email, role: user.role, plan: user.plan || "free" } });
 });
 
 app.get("/api/auth/me", requireAuth, (req: AuthRequest, res) => {
   return res.json({ user: req.user });
 });
 
-app.get("/api/article/:category/:slug", async (req, res) => {
+app.get("/api/user/plan", requireAuth, (req: AuthRequest, res) => {
+  return res.json({ plan: req.user?.plan || "free" });
+});
+
+app.post("/api/user/upgrade", requireAuth, (req: AuthRequest, res) => {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+  // In production, verify payment here before upgrading
+  const updated = updateUserPlan(db, req.user.id, "premium");
+  if (!updated) return res.status(500).json({ error: "Failed to upgrade" });
+  const token = signToken({ id: updated.id, email: updated.email, role: updated.role, plan: updated.plan || "premium" });
+  return res.json({ token, user: { id: updated.id, email: updated.email, role: updated.role, plan: updated.plan }, message: "Upgraded to premium!" });
+});
+
+app.get("/api/article/:category/:slug", async (req: AuthRequest, res) => {
   const { category, slug } = req.params;
   const refresh = req.query.refresh === "true" || req.query.refresh === "1";
+
+  // Detect user tier from optional auth
+  const user = getUserFromRequest(req);
+  const userTier = (user?.plan === "premium" ? "premium" : "free") as "free" | "premium";
 
   try {
     const existing = getArticle(db, category, slug);
@@ -218,18 +236,18 @@ app.get("/api/article/:category/:slug", async (req, res) => {
     }
 
     const topic = typeof req.query.topic === "string" ? req.query.topic : titleFromSlug(slug);
-    const markdown = await generateArticleMarkdown({ category, topic });
+    const result = await generateArticleMarkdown({ category, topic, userTier });
 
-    if (!markdown.trim()) {
+    if (!result.markdown.trim()) {
       return res.status(500).json({ error: "AI returned empty content." });
     }
 
-    const references = parseReferencesFromMarkdown(markdown);
+    const references = parseReferencesFromMarkdown(result.markdown);
     const saved = upsertArticle(db, {
       category,
       topic,
       slug,
-      markdown,
+      markdown: result.markdown,
       references: references.length ? references : undefined,
     });
 
@@ -249,6 +267,7 @@ app.get("/api/article/:category/:slug", async (req, res) => {
     return res.json({
       article: saved ? { ...saved, references: parsedRefs } : null,
       source: existing ? "refreshed" : "generated",
+      provider: result.provider,
     });
   } catch (error) {
     console.error("/api/article error", error);
@@ -258,12 +277,16 @@ app.get("/api/article/:category/:slug", async (req, res) => {
   }
 });
 
-app.post("/api/article/generate", async (req, res) => {
+app.post("/api/article/generate", async (req: AuthRequest, res) => {
   const { category, topic, slug, refresh } = req.body || {};
 
   if (!category || !topic) {
     return res.status(400).json({ error: "category and topic are required" });
   }
+
+  // Detect user tier from optional auth
+  const user = getUserFromRequest(req);
+  const userTier = (user?.plan === "premium" ? "premium" : "free") as "free" | "premium";
 
   try {
     const finalSlug = slug ? String(slug) : slugify(String(topic));
@@ -281,21 +304,22 @@ app.post("/api/article/generate", async (req, res) => {
       return res.json({ article: { ...existing, references: parsedRefs }, source: "cache" });
     }
 
-    const markdown = await generateArticleMarkdown({
+    const result = await generateArticleMarkdown({
       category: String(category),
       topic: String(topic),
+      userTier,
     });
 
-    if (!markdown.trim()) {
+    if (!result.markdown.trim()) {
       return res.status(500).json({ error: "AI returned empty content." });
     }
 
-    const references = parseReferencesFromMarkdown(markdown);
+    const references = parseReferencesFromMarkdown(result.markdown);
     const saved = upsertArticle(db, {
       category: String(category),
       topic: String(topic),
       slug: finalSlug,
-      markdown,
+      markdown: result.markdown,
       references: references.length ? references : undefined,
     });
 
@@ -315,6 +339,7 @@ app.post("/api/article/generate", async (req, res) => {
     return res.json({
       article: saved ? { ...saved, references: parsedRefs } : null,
       source: existing ? "refreshed" : "generated",
+      provider: result.provider,
     });
   } catch (error) {
     console.error("/api/article/generate error", error);
@@ -732,7 +757,7 @@ app.post("/api/notes/:articleId", requireAuth, (req: AuthRequest, res) => {
   return res.json({ note });
 });
 
-app.get("/api/comments/:articleId", requireAuth, (req: AuthRequest, res) => {
+app.get("/api/comments/:articleId", (req, res) => {
   const articleId = Number(req.params.articleId);
   if (!Number.isFinite(articleId)) return res.status(400).json({ error: "Invalid article id" });
   const comments = listComments(db, articleId);

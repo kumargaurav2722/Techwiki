@@ -17,14 +17,16 @@ import {
   listAdminUsers,
   banAdminUser,
   unbanAdminUser,
+  fetchAnalytics,
   type AdminArticle,
   type AdminArticleSummary,
   type IngestStatus,
   type ArticleVersion,
   type CommentReport,
   type AdminUser,
+  type AnalyticsData,
 } from "@/shared/services/adminApi";
-import { Search, Save, Loader2, Database, KeyRound } from "lucide-react";
+import { Search, Save, Loader2, Database, KeyRound, BarChart3 } from "lucide-react";
 import { titleFromSlug } from "@/shared/lib/slug";
 
 type DiffLine = { type: "context" | "add" | "remove"; text: string };
@@ -125,6 +127,8 @@ export function AdminPage() {
   const [userError, setUserError] = useState<string | null>(null);
   const [banReason, setBanReason] = useState<Record<number, string>>({});
   const [banUntil, setBanUntil] = useState<Record<number, string>>({});
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   const diffLines = useMemo(() => {
     if (!compareBaseId || !compareTargetId) return [];
@@ -265,6 +269,20 @@ export function AdminPage() {
       active = false;
     };
   }, [adminKey, userQuery, userStatus]);
+
+  useEffect(() => {
+    let active = true;
+    setAnalyticsLoading(true);
+    fetchAnalytics()
+      .then((data) => {
+        if (active) setAnalytics(data);
+      })
+      .catch(() => { })
+      .finally(() => {
+        if (active) setAnalyticsLoading(false);
+      });
+    return () => { active = false; };
+  }, [adminKey]);
 
   const handleSave = async () => {
     if (!article) return;
@@ -453,11 +471,10 @@ export function AdminPage() {
                   <button
                     key={item.id}
                     onClick={() => setSelectedId(item.id)}
-                    className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                      selectedId === item.id
+                    className={`w-full text-left p-3 rounded-lg border transition-colors ${selectedId === item.id
                         ? "border-indigo-400 bg-indigo-50"
                         : "border-zinc-200 hover:border-indigo-300"
-                    }`}
+                      }`}
                   >
                     <div className="text-sm font-semibold text-zinc-900">{item.topic}</div>
                     <div className="text-xs uppercase tracking-wide text-zinc-400">
@@ -667,24 +684,35 @@ export function AdminPage() {
                         </select>
                       </div>
                     </div>
-                    <div className="border border-zinc-200 rounded-md bg-zinc-50 max-h-[320px] overflow-auto">
-                      <pre className="text-xs font-mono whitespace-pre-wrap px-3 py-2">
-                        {diffLines.map((line, index) => {
-                          const prefix = line.type === "add" ? "+ " : line.type === "remove" ? "- " : "  ";
-                          const className =
-                            line.type === "add"
-                              ? "text-emerald-700"
-                              : line.type === "remove"
-                              ? "text-red-600"
-                              : "text-zinc-700";
-                          return (
-                            <div key={`${line.type}-${index}`} className={className}>
-                              {prefix}
-                              {line.text || " "}
-                            </div>
-                          );
-                        })}
-                      </pre>
+                    <div className="border border-zinc-200 rounded-md bg-zinc-50 max-h-[400px] overflow-auto">
+                      <div className="grid grid-cols-2 text-xs font-mono">
+                        <div className="border-r border-zinc-200 px-2 py-1 bg-red-50 font-semibold text-red-700 text-center">Base (#{compareBaseId})</div>
+                        <div className="px-2 py-1 bg-emerald-50 font-semibold text-emerald-700 text-center">Compare (#{compareTargetId})</div>
+                      </div>
+                      <div className="grid grid-cols-2 text-xs font-mono">
+                        <div className="border-r border-zinc-200">
+                          {diffLines.map((line, index) => {
+                            if (line.type === "add") return <div key={`l-${index}`} className="px-2 py-0.5 bg-zinc-50 text-zinc-300 min-h-[1.5em]">&nbsp;</div>;
+                            const bg = line.type === "remove" ? "bg-red-50 text-red-800" : "text-zinc-700";
+                            return (
+                              <div key={`l-${index}`} className={`px-2 py-0.5 ${bg} whitespace-pre-wrap min-h-[1.5em]`}>
+                                {line.text || " "}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div>
+                          {diffLines.map((line, index) => {
+                            if (line.type === "remove") return <div key={`r-${index}`} className="px-2 py-0.5 bg-zinc-50 text-zinc-300 min-h-[1.5em]">&nbsp;</div>;
+                            const bg = line.type === "add" ? "bg-emerald-50 text-emerald-800" : "text-zinc-700";
+                            return (
+                              <div key={`r-${index}`} className={`px-2 py-0.5 ${bg} whitespace-pre-wrap min-h-[1.5em]`}>
+                                {line.text || " "}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
                   </>
                 )}
@@ -843,6 +871,75 @@ export function AdminPage() {
                   </div>
                 ))}
               </div>
+            )}
+          </div>
+
+          <div className="bg-white border border-zinc-200 rounded-xl p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-indigo-600" />
+              <h3 className="text-sm font-semibold text-zinc-700">Analytics Dashboard</h3>
+            </div>
+            {analyticsLoading ? (
+              <div className="text-sm text-zinc-500">Loading analytics...</div>
+            ) : analytics ? (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 text-center">
+                    <div className="text-3xl font-bold text-indigo-700">{analytics.counts.articles}</div>
+                    <div className="text-xs uppercase tracking-wide text-indigo-500 mt-1">Total Articles</div>
+                  </div>
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 text-center">
+                    <div className="text-3xl font-bold text-emerald-700">{analytics.counts.categories}</div>
+                    <div className="text-xs uppercase tracking-wide text-emerald-500 mt-1">Categories</div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold text-zinc-600 uppercase tracking-wide">Top Articles by Views</h4>
+                  {analytics.trending.length === 0 ? (
+                    <div className="text-xs text-zinc-500">No data yet.</div>
+                  ) : (
+                    <div className="space-y-1">
+                      {analytics.trending.map((item, idx) => {
+                        const maxViews = analytics.trending[0]?.views || 1;
+                        const pct = Math.max(5, Math.round(((item.views || 0) / maxViews) * 100));
+                        return (
+                          <div key={item.id} className="flex items-center gap-2">
+                            <span className="text-xs text-zinc-400 w-5 text-right">{idx + 1}.</span>
+                            <div className="flex-1 relative">
+                              <div className="h-6 bg-indigo-100 rounded-md" style={{ width: `${pct}%` }} />
+                              <span className="absolute inset-0 flex items-center px-2 text-xs font-medium text-zinc-800 truncate">
+                                {item.topic}
+                              </span>
+                            </div>
+                            <span className="text-xs text-zinc-500 w-14 text-right">{item.views ?? 0} views</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold text-zinc-600 uppercase tracking-wide">Recent Activity</h4>
+                  {analytics.recent.length === 0 ? (
+                    <div className="text-xs text-zinc-500">No recent articles.</div>
+                  ) : (
+                    <div className="space-y-1">
+                      {analytics.recent.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between text-xs">
+                          <span className="text-zinc-700 truncate">{item.topic}</span>
+                          <span className="text-zinc-400 ml-2 shrink-0">
+                            {titleFromSlug(item.category)} · {item.updated_at ? new Date(item.updated_at).toLocaleDateString() : ""}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-zinc-500">Unable to load analytics.</div>
             )}
           </div>
         </section>

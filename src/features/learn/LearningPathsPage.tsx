@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
-import { LEARNING_PATHS, INTERVIEW_TRACKS } from "@/shared/data/learningPaths";
+import { LEARNING_PATHS, INTERVIEW_TRACKS, LANGUAGE_TRACKS } from "@/shared/data/learningPaths";
 import { slugify, titleFromSlug } from "@/shared/lib/slug";
-import { BookOpen, GraduationCap } from "lucide-react";
+import { BookOpen, GraduationCap, Code2 } from "lucide-react";
 
 export function LearningPathsPage() {
   return (
@@ -70,6 +70,34 @@ export function LearningPathsPage() {
                     <span className="text-xs uppercase tracking-wide text-zinc-400">
                       {titleFromSlug(step.category)}
                     </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Code2 className="w-5 h-5 text-indigo-600" />
+          <h2 className="text-2xl font-serif font-bold text-zinc-900">Language Mastery Tracks</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {LANGUAGE_TRACKS.map((track) => (
+            <div key={track.id} className="bg-white border border-zinc-200 rounded-xl p-6 space-y-4">
+              <div>
+                <h3 className="text-xl font-semibold text-zinc-900">{track.name}</h3>
+                <p className="text-sm text-zinc-600 mt-1">{track.description}</p>
+              </div>
+              <div className="space-y-2">
+                {track.steps.map((step) => (
+                  <Link
+                    key={`${track.id}-${step.title}`}
+                    to={`/wiki/${step.category}/${slugify(step.title)}`}
+                    className="flex items-center justify-between text-sm text-zinc-700 hover:text-indigo-600"
+                  >
+                    <span>{step.title}</span>
                   </Link>
                 ))}
               </div>

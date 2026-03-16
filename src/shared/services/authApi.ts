@@ -2,6 +2,7 @@ export type AuthUser = {
   id: number;
   email: string;
   role: string;
+  plan: string;
 };
 
 const TOKEN_KEY = "techwiki_auth_token";

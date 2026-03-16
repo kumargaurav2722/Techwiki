@@ -149,6 +149,16 @@ export function Sidebar() {
             </NavLink>
           </div>
         ) : null}
+        {user && user.plan !== "premium" ? (
+          <div className="mt-8 pt-4 border-t border-zinc-200">
+            <Link
+              to="/upgrade"
+              className="block px-3 py-2 rounded-md text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors text-center shadow-sm"
+            >
+              Upgrade to Premium ✨
+            </Link>
+          </div>
+        ) : null}
       </div>
     </aside>
   );

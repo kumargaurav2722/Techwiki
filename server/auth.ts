@@ -7,6 +7,7 @@ export type AuthUser = {
   id: number;
   email: string;
   role: string;
+  plan: string;
 };
 
 const JWT_SECRET = process.env.JWT_SECRET || "techwiki_dev_secret";
@@ -21,19 +22,27 @@ export async function comparePassword(password: string, hash: string) {
 }
 
 export function signToken(user: AuthUser) {
-  return jwt.sign({ sub: user.id, email: user.email, role: user.role }, JWT_SECRET, {
-    expiresIn: "7d",
-  });
+  return jwt.sign(
+    { sub: user.id, email: user.email, role: user.role, plan: user.plan },
+    JWT_SECRET,
+    { expiresIn: "7d" }
+  );
 }
 
 export function verifyToken(token: string): AuthUser | null {
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as {
+    const payload = jwt.verify(token, JWT_SECRET) as unknown as {
       sub: number;
       email: string;
       role: string;
+      plan?: string;
     };
-    return { id: payload.sub, email: payload.email, role: payload.role };
+    return {
+      id: payload.sub,
+      email: payload.email,
+      role: payload.role,
+      plan: payload.plan || "free",
+    };
   } catch {
     return null;
   }

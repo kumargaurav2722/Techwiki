@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import { fetchArticle } from "@/shared/services/wikiApi";
 import { titleFromSlug } from "@/shared/lib/slug";
-import { Loader2, AlertCircle, Clock, Tag, Bookmark } from "lucide-react";
+import { Loader2, AlertCircle, Clock, Tag, Bookmark, Share2, List, ChevronRight } from "lucide-react";
 import { useAuth } from "@/shared/context/AuthContext";
 import {
   addBookmark,
@@ -23,6 +23,33 @@ import {
   type Note,
 } from "@/shared/services/collabApi";
 
+function estimateReadingTime(markdown: string) {
+  const text = markdown.replace(/```[\s\S]*?```/g, "").replace(/[#*>\-_`~\[\]()!|]/g, "");
+  const words = text.split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.ceil(words / 200));
+}
+
+function extractHeadings(markdown: string) {
+  const headings: Array<{ level: number; text: string; id: string }> = [];
+  const lines = markdown.split("\n");
+  let inCodeBlock = false;
+  for (const line of lines) {
+    if (line.trim().startsWith("```")) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+    if (inCodeBlock) continue;
+    const match = line.match(/^(#{1,3})\s+(.+)/);
+    if (match) {
+      const level = match[1].length;
+      const text = match[2].replace(/[*_`]/g, "").trim();
+      const id = text.toLowerCase().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-");
+      headings.push({ level, text, id });
+    }
+  }
+  return headings;
+}
+
 export function ArticlePage() {
   const { category, topic } = useParams<{ category: string; topic: string }>();
   const [content, setContent] = useState<string>("");
@@ -30,6 +57,7 @@ export function ArticlePage() {
   const [error, setError] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [source, setSource] = useState<string | null>(null);
+  const [provider, setProvider] = useState<"gemini" | "groq" | null>(null);
   const [references, setReferences] = useState<Array<{ title: string; url: string }> | null>(null);
   const [views, setViews] = useState<number | null>(null);
   const [articleId, setArticleId] = useState<number | null>(null);
@@ -44,10 +72,15 @@ export function ArticlePage() {
   const [reportingCommentId, setReportingCommentId] = useState<number | null>(null);
   const [reportReason, setReportReason] = useState("");
   const [reportMessage, setReportMessage] = useState<string | null>(null);
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
+  const [tocOpen, setTocOpen] = useState(true);
   const { user } = useAuth();
 
   const displayTopic = topic ? titleFromSlug(topic) : "Unknown Topic";
   const displayCategory = category ? titleFromSlug(category) : "General";
+
+  const readingTime = useMemo(() => estimateReadingTime(content), [content]);
+  const headings = useMemo(() => extractHeadings(content), [content]);
 
   useEffect(() => {
     if (!category || !topic) return;
@@ -67,6 +100,7 @@ export function ArticlePage() {
           setContent(response.article.markdown);
           setUpdatedAt(response.article.updated_at);
           setSource(response.source);
+          setProvider(response.provider || null);
           setReferences(response.article.references || null);
           setViews(response.article.views ?? null);
           setArticleId(response.article.id);
@@ -98,27 +132,28 @@ export function ArticlePage() {
       .catch(() => setLists([]));
   }, [user]);
 
+  // Load comments publicly (no auth needed) + notes for logged-in users
   useEffect(() => {
-    if (!user || !articleId) {
-      setNotes([]);
+    if (!articleId) {
       setComments([]);
+      setNotes([]);
       setCollabError(null);
       return;
     }
     let isMounted = true;
     const loadCollab = async () => {
       try {
-        const [notesData, commentsData] = await Promise.all([
-          listNotes(articleId),
-          listComments(articleId),
-        ]);
-        if (isMounted) {
-          setNotes(notesData || []);
-          setComments(commentsData || []);
-        }
-      } catch (err) {
-        if (isMounted) {
-          setCollabError(err instanceof Error ? err.message : "Failed to load notes or comments");
+        const commentsData = await listComments(articleId);
+        if (isMounted) setComments(commentsData || []);
+      } catch {
+        // Comments may fail silently for public users
+      }
+      if (user) {
+        try {
+          const notesData = await listNotes(articleId);
+          if (isMounted) setNotes(notesData || []);
+        } catch (err) {
+          if (isMounted) setCollabError(err instanceof Error ? err.message : "Failed to load notes");
         }
       }
     };
@@ -141,6 +176,7 @@ export function ArticlePage() {
       setContent(response.article.markdown);
       setUpdatedAt(response.article.updated_at);
       setSource(response.source);
+      setProvider(response.provider || null);
       setReferences(response.article.references || null);
       setViews(response.article.views ?? null);
       setArticleId(response.article.id);
@@ -172,6 +208,18 @@ export function ArticlePage() {
       setSaveMessage("Added to reading list.");
     } catch (err) {
       setSaveMessage(err instanceof Error ? err.message : "Failed to add to list");
+    }
+  };
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareMessage("Link copied!");
+      setTimeout(() => setShareMessage(null), 2000);
+    } catch {
+      setShareMessage("Could not copy link.");
+      setTimeout(() => setShareMessage(null), 2000);
     }
   };
 
@@ -241,7 +289,7 @@ export function ArticlePage() {
   return (
     <article className="animate-in fade-in duration-500">
       <header className="mb-8 pb-8 border-b border-zinc-200">
-        <div className="flex items-center gap-4 text-sm text-zinc-500 mb-4">
+        <div className="flex items-center gap-4 text-sm text-zinc-500 mb-4 flex-wrap">
           <span className="flex items-center gap-1.5 bg-zinc-100 px-2.5 py-1 rounded-md">
             <Tag className="w-4 h-4" />
             {displayCategory}
@@ -250,9 +298,27 @@ export function ArticlePage() {
             <Clock className="w-4 h-4" />
             {updatedAt ? `Updated ${new Date(updatedAt).toLocaleString()}` : "Loading metadata..."}
           </span>
+          <span className="flex items-center gap-1.5 bg-amber-50 text-amber-700 px-2.5 py-1 rounded-md text-xs font-medium">
+            ⏱ {readingTime} min read
+          </span>
           {source ? (
             <span className="flex items-center gap-1.5 bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-md">
               {source === "cache" ? "Cached" : "Generated"}
+            </span>
+          ) : null}
+          {provider ? (
+            <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md ${provider === "gemini"
+                ? "bg-amber-50 text-amber-700 font-semibold"
+                : "bg-emerald-50 text-emerald-700"
+              }`}>
+              {provider === "gemini" ? "Generated with Gemini Pro ✨" : "Generated with Llama 70B"}
+            </span>
+          ) : null}
+          {user && user.plan !== "premium" ? (
+            <span className="flex items-center gap-1.5 px-2.5 py-1">
+              <Link to="/upgrade" className="text-xs font-semibold text-amber-600 hover:text-amber-700 underline underline-offset-2">
+                Upgrade for premium AI
+              </Link>
             </span>
           ) : null}
           {views !== null ? (
@@ -260,7 +326,15 @@ export function ArticlePage() {
               {views} views
             </span>
           ) : null}
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={handleShare}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-700 hover:text-indigo-700"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              {shareMessage || "Share"}
+            </button>
             {user ? (
               <>
                 <button
@@ -320,6 +394,41 @@ export function ArticlePage() {
         </p>
       </header>
 
+      {/* Table of Contents */}
+      {headings.length > 2 ? (
+        <aside className="mb-8 bg-zinc-50 border border-zinc-200 rounded-xl p-4">
+          <button
+            onClick={() => setTocOpen((prev) => !prev)}
+            className="flex items-center gap-2 w-full text-left"
+          >
+            <List className="w-4 h-4 text-indigo-600" />
+            <span className="text-sm font-semibold text-zinc-900">Table of Contents</span>
+            <ChevronRight
+              className={`w-4 h-4 text-zinc-400 ml-auto transition-transform ${tocOpen ? "rotate-90" : ""
+                }`}
+            />
+          </button>
+          {tocOpen ? (
+            <nav className="mt-3 space-y-1">
+              {headings.map((heading) => (
+                <a
+                  key={heading.id}
+                  href={`#${heading.id}`}
+                  className={`block text-sm hover:text-indigo-600 transition-colors ${heading.level === 1
+                    ? "font-semibold text-zinc-900"
+                    : heading.level === 2
+                      ? "text-zinc-700 pl-3"
+                      : "text-zinc-500 pl-6"
+                    }`}
+                >
+                  {heading.text}
+                </a>
+              ))}
+            </nav>
+          ) : null}
+        </aside>
+      ) : null}
+
       <div className="prose prose-zinc prose-lg max-w-none prose-headings:font-serif prose-headings:font-bold prose-a:text-indigo-600 hover:prose-a:text-indigo-800 prose-pre:bg-[#0d1117] prose-pre:border prose-pre:border-zinc-800 prose-code:text-indigo-600 prose-code:bg-indigo-50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:before:content-none prose-code:after:content-none">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
@@ -332,7 +441,22 @@ export function ArticlePage() {
                 return <Link to={href} {...props} />;
               }
               return <a target="_blank" rel="noopener noreferrer" {...props} />;
-            }
+            },
+            h1: ({ node, children, ...props }) => {
+              const text = String(children).replace(/[*_`]/g, "").trim();
+              const id = text.toLowerCase().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-");
+              return <h1 id={id} {...props}>{children}</h1>;
+            },
+            h2: ({ node, children, ...props }) => {
+              const text = String(children).replace(/[*_`]/g, "").trim();
+              const id = text.toLowerCase().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-");
+              return <h2 id={id} {...props}>{children}</h2>;
+            },
+            h3: ({ node, children, ...props }) => {
+              const text = String(children).replace(/[*_`]/g, "").trim();
+              const id = text.toLowerCase().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-");
+              return <h3 id={id} {...props}>{children}</h3>;
+            },
           }}
         >
           {content}
@@ -364,71 +488,89 @@ export function ArticlePage() {
             {reportMessage}
           </div>
         ) : null}
-        {!user ? (
-          <div className="text-sm text-zinc-500">
-            <Link to="/login" className="text-indigo-600 hover:underline">
-              Sign in
-            </Link>{" "}
-            to create notes and join the discussion.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white border border-zinc-200 rounded-xl p-4 space-y-3">
-              <h3 className="text-lg font-semibold text-zinc-900">Personal Notes</h3>
-              <textarea
-                value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
-                rows={4}
-                className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                placeholder="Capture key ideas or reminders..."
-              />
-              <button
-                onClick={handleSaveNote}
-                className="px-4 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-              >
-                Save Note
-              </button>
-              {notes.length === 0 ? (
-                <div className="text-xs text-zinc-500">No notes yet.</div>
-              ) : (
-                <div className="space-y-2">
-                  {notes.map((note) => (
-                    <div key={note.id} className="border border-zinc-200 rounded-lg p-3">
-                      <div className="text-sm text-zinc-700 whitespace-pre-wrap">{note.content}</div>
-                      <div className="text-xs text-zinc-400 mt-2">
-                        Updated {new Date(note.updated_at).toLocaleString()}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
 
-            <div className="bg-white border border-zinc-200 rounded-xl p-4 space-y-3">
-              <h3 className="text-lg font-semibold text-zinc-900">Discussion</h3>
-              <textarea
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                rows={4}
-                className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                placeholder="Share clarifications or interview tips..."
-              />
-              <button
-                onClick={handlePostComment}
-                className="px-4 py-2 text-sm font-semibold bg-zinc-900 text-white rounded-md hover:bg-zinc-800"
-              >
-                Post Comment
-              </button>
-              {comments.length === 0 ? (
-                <div className="text-xs text-zinc-500">No comments yet.</div>
-              ) : (
-                <div className="space-y-2">
-                  {comments.map((comment) => (
-                    <div key={comment.id} className="border border-zinc-200 rounded-lg p-3">
-                      <div className="text-sm text-zinc-700 whitespace-pre-wrap">{comment.content}</div>
-                      <div className="text-xs text-zinc-400 mt-2">
-                        User #{comment.user_id} on {new Date(comment.created_at).toLocaleString()}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Notes (auth required) */}
+          <div className="bg-white border border-zinc-200 rounded-xl p-4 space-y-3">
+            <h3 className="text-lg font-semibold text-zinc-900">Personal Notes</h3>
+            {user ? (
+              <>
+                <textarea
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  rows={4}
+                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                  placeholder="Capture key ideas or reminders..."
+                />
+                <button
+                  onClick={handleSaveNote}
+                  className="px-4 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                >
+                  Save Note
+                </button>
+                {notes.length === 0 ? (
+                  <div className="text-xs text-zinc-500">No notes yet.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {notes.map((note) => (
+                      <div key={note.id} className="border border-zinc-200 rounded-lg p-3">
+                        <div className="text-sm text-zinc-700 whitespace-pre-wrap">{note.content}</div>
+                        <div className="text-xs text-zinc-400 mt-2">
+                          Updated {new Date(note.updated_at).toLocaleString()}
+                        </div>
                       </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-sm text-zinc-500">
+                <Link to="/login" className="text-indigo-600 hover:underline">
+                  Sign in
+                </Link>{" "}
+                to create personal notes.
+              </div>
+            )}
+          </div>
+
+          {/* Discussion (public view, auth for posting) */}
+          <div className="bg-white border border-zinc-200 rounded-xl p-4 space-y-3">
+            <h3 className="text-lg font-semibold text-zinc-900">Discussion</h3>
+            {user ? (
+              <>
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  rows={4}
+                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                  placeholder="Share clarifications or interview tips..."
+                />
+                <button
+                  onClick={handlePostComment}
+                  className="px-4 py-2 text-sm font-semibold bg-zinc-900 text-white rounded-md hover:bg-zinc-800"
+                >
+                  Post Comment
+                </button>
+              </>
+            ) : (
+              <div className="text-sm text-zinc-500 mb-2">
+                <Link to="/login" className="text-indigo-600 hover:underline">
+                  Log in
+                </Link>{" "}
+                to join the discussion.
+              </div>
+            )}
+            {comments.length === 0 ? (
+              <div className="text-xs text-zinc-500">No comments yet. Be the first to share your thoughts!</div>
+            ) : (
+              <div className="space-y-2">
+                {comments.map((comment) => (
+                  <div key={comment.id} className="border border-zinc-200 rounded-lg p-3">
+                    <div className="text-sm text-zinc-700 whitespace-pre-wrap">{comment.content}</div>
+                    <div className="text-xs text-zinc-400 mt-2">
+                      User #{comment.user_id} on {new Date(comment.created_at).toLocaleString()}
+                    </div>
+                    {user ? (
                       <div className="mt-2">
                         {reportingCommentId === comment.id ? (
                           <div className="space-y-2">
@@ -470,13 +612,13 @@ export function ArticlePage() {
                           </button>
                         )}
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </section>
 
       <footer className="mt-16 pt-8 border-t border-zinc-200 text-sm text-zinc-500 text-center">
